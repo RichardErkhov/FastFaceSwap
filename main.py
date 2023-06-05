@@ -1,5 +1,4 @@
 import cv2
-import mediapipe as mp
 import insightface
 from threading import Thread
 from tqdm import tqdm
@@ -34,27 +33,24 @@ except:
     print("You forgot to add the input face")
     exit()
 cap = cv2.VideoCapture(args['target_path'])
-mp_face_detection = mp.solutions.face_detection
-mp_drawing = mp.solutions.drawing_utils
 def face_analyser_thread(frame):
     faces = face_analyser.get(frame)
     for face in faces:
         frame = face_swapper.get(frame, face, source_face, paste_back=True)    
     return frame
-with mp_face_detection.FaceDetection(model_selection=0, min_detection_confidence=0.5) as face_detection:
-    with tqdm() as progressbar:
-        temp = []
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret:
-                break
-            temp.append(ThreadWithReturnValue(target=face_analyser_thread, args=(frame,)))
-            temp[-1].start()
-            while len(temp) >= 3:
-                frame = temp.pop(0).join()
-            cv2.imshow('Face Detection', frame)
-            progressbar.update(1)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
+with tqdm() as progressbar:
+    temp = []
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+        temp.append(ThreadWithReturnValue(target=face_analyser_thread, args=(frame,)))
+        temp[-1].start()
+        while len(temp) >= 3:
+            frame = temp.pop(0).join()
+        cv2.imshow('Face Detection', frame)
+        progressbar.update(1)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
 cap.release()
 cv2.destroyAllWindows()

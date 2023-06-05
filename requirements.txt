@@ -1,5 +1,4 @@
 opencv-python
-mediapipe
 insightface
 onnxruntime-gpu
 argparse
