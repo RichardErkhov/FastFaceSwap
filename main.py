@@ -4,6 +4,13 @@ import insightface
 from threading import Thread
 from tqdm import tqdm
 import onnxruntime as rt
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument('-f', '--face', help='use this face', dest='face', default="face.jpg")
+parser.add_argument('-t', '--target', help='replace this face. If camera, use integer like 0',default=0, dest='target_path')
+args = {}
+for name, value in vars(parser.parse_args()).items():
+    args[name] = value
 sess_options = rt.SessionOptions()
 sess_options.intra_op_num_threads = 8
 class ThreadWithReturnValue(Thread):
@@ -21,12 +28,12 @@ face_swapper = insightface.model_zoo.get_model("inswapper_128.onnx", session_opt
 face_analyser = insightface.app.FaceAnalysis(name='buffalo_l')
 face_analyser.prepare(ctx_id=0, det_size=(640, 640))
 try:
-    input_face = cv2.imread("face.jpg")
+    input_face = cv2.imread(args['face'])
     source_face = sorted(face_analyser.get(input_face), key=lambda x: x.bbox[0])[0]
 except:
     print("You forgot to add the input face")
     exit()
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(args['target_path'])
 mp_face_detection = mp.solutions.face_detection
 mp_drawing = mp.solutions.drawing_utils
 def face_analyser_thread(frame):
