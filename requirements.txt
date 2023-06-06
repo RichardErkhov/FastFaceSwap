@@ -1,4 +1,1 @@
-opencv-python
-insightface
-onnxruntime-gpu
-argparse
+mediapipe
