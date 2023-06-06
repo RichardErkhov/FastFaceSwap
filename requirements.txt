@@ -1,1 +1,12 @@
-mediapipe
+opencv-python
+insightface
+onnxruntime-gpu
+argparse
+basicsr>=1.4.2
+facexlib>=0.2.5
+lmdb
+pyyaml
+scipy
+tb-nightly
+tqdm
+yapf
