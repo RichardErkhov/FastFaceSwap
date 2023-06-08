@@ -32,10 +32,14 @@ def main():
     parser.add_argument('-f', '--face', help='use this face', dest='face', default="face.jpg")
     parser.add_argument('-t', '--target', help='replace this face. If camera, use integer like 0',default="0", dest='target_path')
     parser.add_argument('-o', '--output', help='path to output of the video',default="video.mp4", dest='output')
+    parser.add_argument('-cam-fix', '--camera-fix', help='replace this face. If camera, use integer like 0', dest='camera_fix', action='store_true')
+    parser.add_argument('-res', '--resolution', help='camera resolution, given in format WxH (ex 1920x1080). Is set for camera mode only',default="1920x1080", dest='resolution')
     args = {}
     providers = rt.get_available_providers()
     for name, value in vars(parser.parse_args()).items():
         args[name] = value
+    width, height = args['resolution'].split('x')
+    width, height = int(width), int(height)
     if (args['target_path'].isdigit()):
         args['target_path'] = int(args['target_path'])
     sess_options = rt.SessionOptions()
@@ -63,9 +67,12 @@ def main():
     except:
         print("You forgot to add the input face")
         exit()
-    cap = cv2.VideoCapture(args['target_path'])
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    if args['camera_fix'] == True:
+        cap = cv2.VideoCapture(args['target_path'], cv2.CAP_DSHOW)
+    else:
+        cap = cv2.VideoCapture(args['target_path'])
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
     def face_analyser_thread(frame):
         faces = face_analyser.get(frame)
         bboxes = []
