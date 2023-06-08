@@ -10,3 +10,4 @@ scipy
 tb-nightly
 tqdm
 yapf
+pynvml

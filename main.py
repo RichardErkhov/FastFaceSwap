@@ -11,12 +11,32 @@ from gfpgan import GFPGANer
 import tkinter as tk
 from tkinter import ttk
 import threading
+import subprocess
+import os
+import torch
+import time
+device = torch.device(0)
+gpu_memory_total = round(torch.cuda.get_device_properties(device).total_memory / 1024**3,2)  # Convert bytes to GB
 root = tk.Tk()
 root.geometry("200x200")
 checkbox_var = tk.IntVar()
 checkbox = ttk.Checkbutton(root, text="Face enhancer", variable=checkbox_var)
 checkbox.pack()
 
+def add_audio_from_video(video_path, audio_video_path, output_path):
+    ffmpeg_cmd = [
+        'ffmpeg',
+        '-i', video_path,
+        '-i', audio_video_path,
+        '-c:v', 'copy',
+        '-c:a', 'aac',
+        '-map', '0:v:0',
+        '-map', '1:a:0',
+        '-shortest',
+        output_path
+    ]
+
+    subprocess.run(ffmpeg_cmd, check=True)
 def main():
     arch = 'clean'
     channel_multiplier = 2
@@ -34,6 +54,7 @@ def main():
     parser.add_argument('-o', '--output', help='path to output of the video',default="video.mp4", dest='output')
     parser.add_argument('-cam-fix', '--camera-fix', help='replace this face. If camera, use integer like 0', dest='camera_fix', action='store_true')
     parser.add_argument('-res', '--resolution', help='camera resolution, given in format WxH (ex 1920x1080). Is set for camera mode only',default="1920x1080", dest='resolution')
+    parser.add_argument('--threads', help='amount of gpu threads',default="2", dest='threads')
     args = {}
     providers = rt.get_available_providers()
     for name, value in vars(parser.parse_args()).items():
@@ -88,10 +109,14 @@ def main():
 
     # Create a VideoWriter object to save the processed video
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    out = cv2.VideoWriter(args['output'], fourcc, fps, (width, height))
+    name = args['output']
+    if isinstance(args['target_path'], str):
+        name = f"{args['output']}_temp.mp4"
+    out = cv2.VideoWriter(name, fourcc, fps, (width, height))
     with tqdm() as progressbar:
         temp = []
         bbox = []
+        start = time.time()
         while cap.isOpened():
             try:
                 ret, frame = cap.read()
@@ -99,7 +124,7 @@ def main():
                     break
                 temp.append(ThreadWithReturnValue(target=face_analyser_thread, args=(frame,)))
                 temp[-1].start()
-                while len(temp) >= 2:
+                while len(temp) >= int(args['threads']):
                     bbox, frame = temp.pop(0).join()
                 '''cropped_faces, restored_faces, frame = restorer.enhance(
                     frame,
@@ -135,7 +160,9 @@ def main():
                         except Exception as e:  
                             print(e)
 
-                    
+                if time.time() - start > 1:
+                    start = time.time()
+                    progressbar.set_description(f"VRAM: {round(gpu_memory_total - torch.cuda.mem_get_info(device)[0] / 1024**3,2)}/{gpu_memory_total} GB, usage: {torch.cuda.utilization(device=device)}%")
                 cv2.imshow('Face Detection', frame)
                 out.write(frame)
                 progressbar.update(1)
@@ -146,5 +173,10 @@ def main():
     out.release()
     cap.release()
     cv2.destroyAllWindows()
+    add_audio_from_video(name, args['target_path'], args['output'])
+    os.remove(name)
+    print("Processing finished, you may close the window now")
+    exit()
+
 threading.Thread(target=main).start()
 root.mainloop()
