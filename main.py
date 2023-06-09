@@ -52,9 +52,10 @@ def main():
     parser.add_argument('-f', '--face', help='use this face', dest='face', default="face.jpg")
     parser.add_argument('-t', '--target', help='replace this face. If camera, use integer like 0',default="0", dest='target_path')
     parser.add_argument('-o', '--output', help='path to output of the video',default="video.mp4", dest='output')
-    parser.add_argument('-cam-fix', '--camera-fix', help='replace this face. If camera, use integer like 0', dest='camera_fix', action='store_true')
+    parser.add_argument('-cam-fix', '--camera-fix', help='fix for logitech cameras that start for 40 seconds in default mode.', dest='camera_fix', action='store_true')
     parser.add_argument('-res', '--resolution', help='camera resolution, given in format WxH (ex 1920x1080). Is set for camera mode only',default="1920x1080", dest='resolution')
     parser.add_argument('--threads', help='amount of gpu threads',default="2", dest='threads')
+    parser.add_argument('--image', help='Include if the target is image', dest='image', action='store_true')
     args = {}
     providers = rt.get_available_providers()
     for name, value in vars(parser.parse_args()).items():
@@ -88,12 +89,7 @@ def main():
     except:
         print("You forgot to add the input face")
         exit()
-    if args['camera_fix'] == True:
-        cap = cv2.VideoCapture(args['target_path'], cv2.CAP_DSHOW)
-    else:
-        cap = cv2.VideoCapture(args['target_path'])
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+        
     def face_analyser_thread(frame):
         faces = face_analyser.get(frame)
         bboxes = []
@@ -101,6 +97,28 @@ def main():
             bboxes.append(face.bbox)
             frame = face_swapper.get(frame, face, source_face, paste_back=True)    
         return bboxes, frame
+    if args['image'] == True:
+        image = cv2.imread(args['target_path'])
+        bbox, image = face_analyser_thread(image)
+
+        if checkbox_var.get() == 1:
+            cropped_faces, restored_faces, image = restorer.enhance(
+                        image,
+                        has_aligned=False,
+                        only_center_face=False,
+                        paste_back=True
+                    )
+
+        cv2.imwrite(args['output'], image)
+        print("image processing finished")
+        return 
+
+    if args['camera_fix'] == True:
+        cap = cv2.VideoCapture(args['target_path'], cv2.CAP_DSHOW)
+    else:
+        cap = cv2.VideoCapture(args['target_path'])
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
 
     # Get the video's properties
     fps = cap.get(cv2.CAP_PROP_FPS)
