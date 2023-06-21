@@ -30,3 +30,6 @@ flags implemented:
 
 example:
 ``` python main.py -f test.jpg -t "C:/Users/user/Desktop/video.mp4" -o output/test.mp4 -cam-fix --threads 12 ```
+
+
+fast enhancer is still in development, color correction is needed! Sorry for inconvenience, still training the model.
