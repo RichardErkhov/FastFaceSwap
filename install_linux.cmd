@@ -5,12 +5,7 @@ wget https://github.com/RichardErkhov/FastFaceSwap/releases/download/model/inswa
 wget https://github.com/RichardErkhov/FastFaceSwap/releases/download/model/GFPGANv1.4.pth
 pip install torch torchvision torchaudio
 pip install -r requirements.txt
-echo PLEASE ACCEPT
-echo PLEASE ACCEPT
-echo PLEASE ACCEPT
-echo PLEASE ACCEPT
-echo PLEASE ACCEPT
-echo PLEASE ACCEPT
-echo PLEASE ACCEPT
-pip uninstall opencv-python opencv-headless-python opencv-contrib-python
+pip install tensorflow-gpu==2.10.1
+pip install protobuf==3.20.2
+pip uninstall opencv-python opencv-headless-python opencv-contrib-python -q -y
 pip install opencv-python

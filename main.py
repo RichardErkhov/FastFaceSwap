@@ -1,9 +1,6 @@
 import cv2
-import insightface
 from threading import Thread
 from tqdm import tqdm
-import onnxruntime as rt
-import argparse
 import argparse
 import cv2
 import numpy as np
@@ -11,10 +8,48 @@ from gfpgan import GFPGANer
 import tkinter as tk
 from tkinter import ttk
 import threading
-import subprocess
 import os
 import torch
 import time
+from utils import add_audio_from_video, ThreadWithReturnValue, prepare_models
+import tensorflow as tf
+THREAD_SEMAPHORE = threading.Semaphore()
+physical_devices = tf.config.list_physical_devices('GPU')
+tf.config.experimental.set_memory_growth(physical_devices[0], True)
+tf.config.experimental.set_virtual_device_configuration(
+        physical_devices[0],
+        [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=4096)])
+
+generator = tf.keras.models.load_model('256_v2_big_generator_pretrain_stage1_38499.h5')
+arch = 'clean'
+channel_multiplier = 2
+model_path = 'GFPGANv1.4.pth'
+restorer = GFPGANer(
+    model_path=model_path,
+    upscale=0.8,
+    arch=arch,
+    channel_multiplier=channel_multiplier,
+    bg_upsampler=None
+)
+
+def upscale_image(image):
+    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+    image = cv2.resize(image, (256, 256))
+
+    # Normalize the image to [-1, 1]
+    image = (image / 255.0) #- 1
+
+    # Expand the dimensions to match the generator's input shape (1, 128, 128, 3)
+    image = np.expand_dims(image, axis=0)
+
+    # Generate the upscaled image
+    output = generator.predict(image, verbose=0)
+
+    # Denormalize the output image to [0, 255]
+    #output = (output + 1) * 127.5
+
+    # Remove the batch dimension and return the final image
+    return cv2.cvtColor((np.squeeze(output, axis=0) * 255.0), cv2.COLOR_BGR2RGB) #  #
 device = torch.device(0)
 gpu_memory_total = round(torch.cuda.get_device_properties(device).total_memory / 1024**3,2)  # Convert bytes to GB
 adjust_x1 = 50
@@ -43,6 +78,13 @@ root.geometry("200x300")
 checkbox_var = tk.IntVar()
 checkbox = ttk.Checkbutton(root, text="Face enhancer", variable=checkbox_var)
 checkbox.pack()
+enhancer_choice = tk.IntVar()
+r1 = tk.Radiobutton(root, text='fastface enhancer', variable=enhancer_choice, value = 0)
+r1.pack()
+r2 = tk.Radiobutton(root, text='gfpgan', variable=enhancer_choice, value = 1)
+r2.pack()
+
+
 
 show_bbox_var = tk.IntVar()
 show_bbox = ttk.Checkbutton(root, text="draw bounding box around faces", variable=show_bbox_var)
@@ -80,31 +122,11 @@ entry_y2.insert(0, adjust_y2)
 button = tk.Button(root, text="Set Values", command=set_adjust_value)
 button.pack()  # Add the button to the window
 
-def add_audio_from_video(video_path, audio_video_path, output_path):
-    ffmpeg_cmd = [
-        'ffmpeg',
-        '-i', video_path,
-        '-i', audio_video_path,
-        '-c:v', 'copy',
-        '-c:a', 'aac',
-        '-map', '0:v:0',
-        '-map', '1:a:0',
-        '-shortest',
-        output_path
-    ]
 
-    subprocess.run(ffmpeg_cmd, check=True)
 def main():
-    arch = 'clean'
-    channel_multiplier = 2
-    model_path = 'GFPGANv1.4.pth'
-    restorer = GFPGANer(
-        model_path=model_path,
-        upscale=0.8,
-        arch=arch,
-        channel_multiplier=channel_multiplier,
-        bg_upsampler=None
-    )
+    physical_devices = tf.config.list_physical_devices('GPU')
+    
+    
     parser = argparse.ArgumentParser()
     parser.add_argument('-f', '--face', help='use this face', dest='face', default="face.jpg")
     parser.add_argument('-t', '--target', help='replace this face. If camera, use integer like 0',default="0", dest='target_path')
@@ -114,32 +136,13 @@ def main():
     parser.add_argument('--threads', help='amount of gpu threads',default="2", dest='threads')
     parser.add_argument('--image', help='Include if the target is image', dest='image', action='store_true')
     args = {}
-    providers = rt.get_available_providers()
     for name, value in vars(parser.parse_args()).items():
         args[name] = value
     width, height = args['resolution'].split('x')
     width, height = int(width), int(height)
     if (args['target_path'].isdigit()):
         args['target_path'] = int(args['target_path'])
-    sess_options = rt.SessionOptions()
-    sess_options.intra_op_num_threads = 8
-    class ThreadWithReturnValue(Thread):
-        def __init__(self, group=None, target=None, name=None,
-                    args=(), kwargs={}, Verbose=None):
-            Thread.__init__(self, group, target, name, args, kwargs)
-            self._return = None
-        def run(self):
-            if self._target is not None:
-                self._return = self._target(*self._args, **self._kwargs)
-        def join(self, *args):
-            Thread.join(self, *args)
-            return self._return
-    face_swapper = insightface.model_zoo.get_model("inswapper_128.onnx", session_options=sess_options, providers=providers)
-    face_analyser = insightface.app.FaceAnalysis(name='buffalo_l', providers=providers)
-    face_analyser.prepare(ctx_id=0, det_size=(640, 640))
-    face_analyser.models.pop("landmark_3d_68")
-    face_analyser.models.pop("landmark_2d_106")
-    face_analyser.models.pop("genderage")
+    face_swapper, face_analyser = prepare_models()
     try:
         input_face = cv2.imread(args['face'])
         source_face = sorted(face_analyser.get(input_face), key=lambda x: x.bbox[0])[0]
@@ -153,11 +156,35 @@ def main():
         for face in faces:
             bboxes.append(face.bbox)
             frame = face_swapper.get(frame, face, source_face, paste_back=True)    
+            if checkbox_var.get() == 1:
+                try:
+
+                    i = face.bbox
+                    x1, y1, x2, y2 = int(i[0]),int(i[1]),int(i[2]),int(i[3])
+                    x1 = max(x1-adjust_x1, 0)
+                    y1 = max(y1-adjust_y1, 0)
+                    x2 = min(x2+adjust_x2, width)
+                    y2 = min(y2+adjust_y2, height)
+                    facer = frame[y1:y2, x1:x2]
+                    if enhancer_choice.get() == 0:
+                        facex = upscale_image(facer)
+                    else:
+                        with THREAD_SEMAPHORE:
+                            cropped_faces, restored_faces, facex = restorer.enhance(
+                                facer,
+                                has_aligned=False,
+                                only_center_face=False,
+                                paste_back=True
+                            )
+                    facex = cv2.resize(facex, ((x2-x1), (y2-y1)))
+                    frame[y1:y2, x1:x2] = facex
+                except Exception as e:
+                    print(e)
+
         return bboxes, frame
     if args['image'] == True:
         image = cv2.imread(args['target_path'])
         bbox, image = face_analyser_thread(image)
-
         if checkbox_var.get() == 1:
             cropped_faces, restored_faces, image = restorer.enhance(
                         image,
@@ -175,12 +202,12 @@ def main():
         cap = cv2.VideoCapture(args['target_path'])
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
-
+    fourcc = cv2.VideoWriter_fourcc(*'H265')
+    cap.set(cv2.CAP_PROP_FOURCC, fourcc)
     # Get the video's properties
     fps = cap.get(cv2.CAP_PROP_FPS)
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-
     # Create a VideoWriter object to save the processed video
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     name = args['output']
@@ -207,39 +234,42 @@ def main():
                     paste_back=True
                 )'''
                 #frame = cv2.resize(frame, (1280, 720))
-                if checkbox_var.get() == 1:
-                    for i in bbox: 
-                        x1, y1, x2, y2 = int(i[0]),int(i[1]),int(i[2]),int(i[3])
-                        x1 = max(x1-adjust_x1, 0)
-                        y1 = max(y1-adjust_y1, 0)
-                        x2 = min(x2+adjust_x2, width)
-                        y2 = min(y2+adjust_x2, height)
-                        face = frame[y1:y2, x1:x2]
+                #if checkbox_var.get() == 1:
+                #    for i in bbox: 
+                #        x1, y1, x2, y2 = int(i[0]),int(i[1]),int(i[2]),int(i[3])
+                #        x1 = max(x1-adjust_x1, 0)
+                #        y1 = max(y1-adjust_y1, 0)
+                #        x2 = min(x2+adjust_x2, width)
+                #        y2 = min(y2+adjust_y2, height)
+                #        face = frame[y1:y2, x1:x2]
 
-                        try:
-                            cropped_faces, restored_faces, facex = restorer.enhance(
-                                face,
-                                has_aligned=False,
-                                only_center_face=False,
-                                paste_back=True
-                            )
-                            facex = cv2.resize(facex, ((x2-x1), (y2-y1)))
+                        #try:
+                        #    cropped_faces, restored_faces, facex = restorer.enhance(
+                        #        face,
+                        #        has_aligned=False,
+                        #        only_center_face=False,
+                        #        paste_back=True
+                        #    )
+                #            facex = upscale_image(face)
+                #            cv2.imshow('ee', facex/255.0)
+                #            cv2.imshow('eex', face/255.0)
+                            #facex = cv2.resize(facex, ((x2-x1), (y2-y1)))
+                            #frame[y1:y2, x1:x2] = facex
                             #frame = blend_images(face, frame, (x1, y1, x2-x1, y2-y1))
                             #frame = blend_images(frame, face, (x1, y1))
-                            '''try:
-                                
-                            except Exception as e:
-                                print(e)'''
-                            frame[y1:y2, x1:x2] = facex
-                        except Exception as e:  
-                            print(e)
+                '''try:
+                    
+                except Exception as e:
+                    print(e)'''
+                        #except Exception as e:  
+                        #    print(e)
                 if show_bbox_var.get() == 1:
                     for i in bbox: 
                         x1, y1, x2, y2 = int(i[0]),int(i[1]),int(i[2]),int(i[3])
                         x1 = max(x1-adjust_x1, 0)
                         y1 = max(y1-adjust_y1, 0)
                         x2 = min(x2+adjust_x2, width)
-                        y2 = min(y2+adjust_x2, height)
+                        y2 = min(y2+adjust_y2, height)
                         color = (0, 255, 0)  # Green color (BGR format)
                         thickness = 2  # Line thickness
                         cv2.rectangle(frame, (x1,y1), (x2,y2), color, thickness)
