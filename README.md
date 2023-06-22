@@ -10,7 +10,7 @@ just a little project for fast face swapping using one picture
 
 # how to run
 
-### we have a [colab example](https://colab.research.google.com/github/RichardErkhov/FastFaceSwap/blob/main/colab_example.ipynb)
+### Here is a [colab example](https://colab.research.google.com/github/RichardErkhov/FastFaceSwap/blob/main/colab_example.ipynb)
 
 ```python main.py``` by default starts face swapping from camera.
 
