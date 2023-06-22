@@ -28,6 +28,14 @@ flags implemented:
 
 --image: if the target is image, you have to use this flag. 
 
+--cli: run in cli mode, turns off preview and now accepts the switch of face enhancer from the command line
+
+--face-enhancer: face enhancer, choice works only in cli mode. In gui mode, you need to choose from gui. Available options:
+
+1) none (default)
+2) gfpgan
+3) ffe (fast face enhancer)
+
 example:
 ``` python main.py -f test.jpg -t "C:/Users/user/Desktop/video.mp4" -o output/test.mp4 --threads 12 ```
 
