@@ -242,6 +242,12 @@ def main():
         temp = []
         bbox = []
         start = time.time()
+        for i in range(int(args['threads'])):
+            ret, frame = cap.read()
+            if not ret:
+                break
+            temp.append(ThreadWithReturnValue(target=face_analyser_thread, args=(frame,)))
+            temp[-1].start()
         while cap.isOpened():
             try:
                 ret, frame = cap.read()
@@ -251,42 +257,6 @@ def main():
                 temp[-1].start()
                 while len(temp) >= int(args['threads']):
                     bbox, frame = temp.pop(0).join()
-                '''cropped_faces, restored_faces, frame = restorer.enhance(
-                    frame,
-                    has_aligned=False,
-                    only_center_face=False,
-                    paste_back=True
-                )'''
-                #frame = cv2.resize(frame, (1280, 720))
-                #if checkbox_var.get() == 1:
-                #    for i in bbox: 
-                #        x1, y1, x2, y2 = int(i[0]),int(i[1]),int(i[2]),int(i[3])
-                #        x1 = max(x1-adjust_x1, 0)
-                #        y1 = max(y1-adjust_y1, 0)
-                #        x2 = min(x2+adjust_x2, width)
-                #        y2 = min(y2+adjust_y2, height)
-                #        face = frame[y1:y2, x1:x2]
-
-                        #try:
-                        #    cropped_faces, restored_faces, facex = restorer.enhance(
-                        #        face,
-                        #        has_aligned=False,
-                        #        only_center_face=False,
-                        #        paste_back=True
-                        #    )
-                #            facex = upscale_image(face)
-                #            cv2.imshow('ee', facex/255.0)
-                #            cv2.imshow('eex', face/255.0)
-                            #facex = cv2.resize(facex, ((x2-x1), (y2-y1)))
-                            #frame[y1:y2, x1:x2] = facex
-                            #frame = blend_images(face, frame, (x1, y1, x2-x1, y2-y1))
-                            #frame = blend_images(frame, face, (x1, y1))
-                '''try:
-                    
-                except Exception as e:
-                    print(e)'''
-                        #except Exception as e:  
-                        #    print(e)
                 if not args['cli']:
                     if show_bbox_var.get() == 1:
                         for i in bbox: 
@@ -308,6 +278,28 @@ def main():
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
             except KeyboardInterrupt:
+                break
+        for i in temp:
+            bbox, frame = i.join()
+            if not args['cli']:
+                if show_bbox_var.get() == 1:
+                    for i in bbox: 
+                        x1, y1, x2, y2 = int(i[0]),int(i[1]),int(i[2]),int(i[3])
+                        x1 = max(x1-adjust_x1, 0)
+                        y1 = max(y1-adjust_y1, 0)
+                        x2 = min(x2+adjust_x2, width)
+                        y2 = min(y2+adjust_y2, height)
+                        color = (0, 255, 0)  # Green color (BGR format)
+                        thickness = 2  # Line thickness
+                        cv2.rectangle(frame, (x1,y1), (x2,y2), color, thickness)
+            if time.time() - start > 1:
+                start = time.time()
+                progressbar.set_description(f"VRAM: {round(gpu_memory_total - torch.cuda.mem_get_info(device)[0] / 1024**3,2)}/{gpu_memory_total} GB, usage: {torch.cuda.utilization(device=device)}%")
+            if not args['cli']:
+                cv2.imshow('Face Detection', frame)
+            out.write(frame)
+            progressbar.update(1)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
     out.release()
     cap.release()
