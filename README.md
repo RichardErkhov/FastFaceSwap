@@ -38,6 +38,8 @@ flags implemented:
 2) gfpgan
 3) ffe (fast face enhancer)
 
+--no-face-swapper: disables face swapper
+
 example:
 ``` python main.py -f test.jpg -t "C:/Users/user/Desktop/video.mp4" -o output/test.mp4 --threads 12 ```
 
