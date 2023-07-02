@@ -8,9 +8,20 @@ import threading
 import os
 import torch
 import time
-from utils import add_audio_from_video, ThreadWithReturnValue, prepare_models
+from utils import add_audio_from_video, ThreadWithReturnValue, prepare_models, upscale_image
 import tensorflow as tf
+from tkinter import filedialog
+from tkinter.filedialog import asksaveasfilename
+def mish_activation(x):
+    return x * tf.keras.activations.tanh(tf.keras.activations.softplus(x))
 
+class Mish(tf.keras.layers.Layer):
+    def __init__(self, **kwargs):
+        super(Mish, self).__init__()
+
+    def call(self, inputs):
+        return mish_activation(inputs)
+tf.keras.utils.get_custom_objects().update({'Mish': Mish})
 parser = argparse.ArgumentParser()
 parser.add_argument('-f', '--face', help='use this face', dest='face', default="face.jpg")
 parser.add_argument('-t', '--target', help='replace this face. If camera, use integer like 0',default="0", dest='target_path')
@@ -21,6 +32,7 @@ parser.add_argument('--threads', help='amount of gpu threads',default="2", dest=
 parser.add_argument('--image', help='Include if the target is image', dest='image', action='store_true')
 parser.add_argument('--cli', help='run in cli mode, turns off preview and now accepts switch of face enhancer from the command', dest='cli', action='store_true')
 parser.add_argument('--face-enhancer', help='face enhancer, choice works only in cli mode. In gui mode, you need to choose from gui', dest='face_enhancer', default='none', choices=['none','gfpgan', 'ffe'])
+parser.add_argument('--no-face-swapper', '--no-swapper', help='disables face swapper', dest='no_faceswap', action='store_true')
 args = {}
 for name, value in vars(parser.parse_args()).items():
     args[name] = value
@@ -28,9 +40,65 @@ width, height = args['resolution'].split('x')
 width, height = int(width), int(height)
 if (args['target_path'].isdigit()):
     args['target_path'] = int(args['target_path'])
+
+def select_face():
+    global args, select_face_label
+    args['face'] = filedialog.askopenfilename(title="Select a face")
+    select_face_label.config(text=f'Face filename: {args["face"]}')
+
+def select_target():
+    global args, select_target_label
+    args['target_path'] = filedialog.askopenfilename(title="Select a target")
+    select_target_label.config(text=f'Target filename: {args["target_path"]}')
+def select_camera():
+    global args, select_target_label
+    args["target_path"] = "0"
+    select_target_label.config(text=f'Target filename: {args["target_path"]}')
+def select_output():
+    global args, select_output_label
+    filename, ext = 'output.mp4', '.mp4'
+    if args['image']:
+        filename, ext = 'output.png', '.png'
+    args['output'] = asksaveasfilename(initialfile=filename, defaultextension=ext, filetypes=[("All Files","*.*"),("Videos","*.mp4")])
+    select_output_label.config(text=f'Output filename: {args["output"]}')
+    
 if not args['cli']:
     import tkinter as tk
     from tkinter import ttk
+    def eee():
+        print("run")
+        while True:
+            time.sleep(1)
+    def finish(menu):
+        global thread_amount_temp
+        thread_amount_temp = thread_amount_input.get()
+        menu.destroy()
+    menu = tk.Tk()
+    menu.geometry("500x500")
+    button_start_program = tk.Button(menu, text="Start Program", command=lambda: finish(menu))
+    button_start_program.pack()
+    select_face_label = tk.Label(text=f'Face filename: {args["face"]}')
+    select_face_label.pack()
+    button_select_face = tk.Button(menu, text='Select face', command=select_face)
+    button_select_face.pack()
+    select_target_label = tk.Label(text=f'Target filename: {args["target_path"]}')
+    select_target_label.pack()
+    button_select_target = tk.Button(menu, text='Select target', command=select_target)
+    button_select_target.pack()
+    button_select_camera = tk.Button(menu, text='run from camera', command=select_camera)
+    button_select_camera.pack()
+    select_output_label = tk.Label(text=f'output filename: {args["output"]}')
+    select_output_label.pack()
+    button_select_output = tk.Button(menu, text='Select output', command=select_output)
+    button_select_output.pack()
+    thread_amount_label = tk.Label(menu, text='Select the number of threads')
+    thread_amount_label.pack()
+    thread_amount_input = tk.Entry(menu)
+    thread_amount_input.pack()
+    menu.mainloop()
+    if thread_amount_temp != "":
+        args['threads'] = int(thread_amount_temp)
+
 
 THREAD_SEMAPHORE = threading.Semaphore()
 physical_devices = tf.config.list_physical_devices('GPU')
@@ -39,7 +107,7 @@ tf.config.experimental.set_virtual_device_configuration(
         physical_devices[0],
         [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=4096)])
 
-generator = tf.keras.models.load_model('256_v2_big_generator_pretrain_stage1_38499.h5')
+generator = tf.keras.models.load_model('256_v2_big_generator_pretrain_stage1_38499.h5')#, custom_objects={'Mish': Mish})
 arch = 'clean'
 channel_multiplier = 2
 model_path = 'GFPGANv1.4.pth'
@@ -51,24 +119,7 @@ restorer = GFPGANer(
     bg_upsampler=None
 )
 
-def upscale_image(image):
-    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-    image = cv2.resize(image, (256, 256))
 
-    # Normalize the image to [-1, 1]
-    image = (image / 255.0) #- 1
-
-    # Expand the dimensions to match the generator's input shape (1, 128, 128, 3)
-    image = np.expand_dims(image, axis=0)
-
-    # Generate the upscaled image
-    output = generator.predict(image, verbose=0)
-
-    # Denormalize the output image to [0, 255]
-    #output = (output + 1) * 127.5
-
-    # Remove the batch dimension and return the final image
-    return cv2.cvtColor((np.squeeze(output, axis=0) * 255.0), cv2.COLOR_BGR2RGB) #  #
 device = torch.device(0)
 gpu_memory_total = round(torch.cuda.get_device_properties(device).total_memory / 1024**3,2)  # Convert bytes to GB
 adjust_x1 = 50
@@ -94,7 +145,10 @@ def set_adjust_value():
     entry_y2.insert(0, adjust_y2)
 if not args['cli']:
     root = tk.Tk()
-    root.geometry("200x300")
+    root.geometry("200x330")
+    faceswapper_checkbox_var = tk.IntVar(value=1)
+    faceswapper_checkbox = ttk.Checkbutton(root, text="Face swapper", variable=faceswapper_checkbox_var)
+    faceswapper_checkbox.pack()
     checkbox_var = tk.IntVar()
     checkbox = ttk.Checkbutton(root, text="Face enhancer", variable=checkbox_var)
     checkbox.pack()
@@ -145,20 +199,25 @@ if not args['cli']:
 
 def main():
     global args, width, height
-    face_swapper, face_analyser = prepare_models()
-    try:
-        input_face = cv2.imread(args['face'])
-        source_face = sorted(face_analyser.get(input_face), key=lambda x: x.bbox[0])[0]
-    except:
-        print("You forgot to add the input face")
-        exit()
+    face_swapper, face_analyser = prepare_models(args)
+    #try:
+    input_face = cv2.imread(args['face'])
+    source_face = sorted(face_analyser.get(input_face), key=lambda x: x.bbox[0])[0]
+    #except:
+    #    print("You forgot to add the input face")
+    #    exit()
         
     def face_analyser_thread(frame):
         faces = face_analyser.get(frame)
         bboxes = []
         for face in faces:
             bboxes.append(face.bbox)
-            frame = face_swapper.get(frame, face, source_face, paste_back=True)   
+            ttest1 = False
+            if not args['cli']:
+                if faceswapper_checkbox_var.get() == True:
+                    ttest1=True
+            if not args['no_faceswap'] and ttest1 == True:
+                frame = face_swapper.get(frame, face, source_face, paste_back=True)   
             try:
                 test1 = checkbox_var.get() == 1 
             except:
@@ -175,7 +234,7 @@ def main():
                     facer = frame[y1:y2, x1:x2]
                     if not args['cli']:
                         if enhancer_choice.get() == 0:
-                            facex = upscale_image(facer)
+                            facex = upscale_image(facer, generator)
                         else:
                             with THREAD_SEMAPHORE:
                                 cropped_faces, restored_faces, facex = restorer.enhance(
@@ -194,7 +253,7 @@ def main():
                                     paste_back=True
                                 )
                         elif args['face_enhancer'] == 'ffe':
-                            facex = upscale_image(facer)
+                            facex = upscale_image(facer, generator)
                     facex = cv2.resize(facex, ((x2-x1), (y2-y1)))
                     frame[y1:y2, x1:x2] = facex
                 except Exception as e:
