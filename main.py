@@ -1,3 +1,4 @@
+from types import NoneType
 import cv2
 from threading import Thread
 from tqdm import tqdm
@@ -103,22 +104,33 @@ if not args['cli']:
 THREAD_SEMAPHORE = threading.Semaphore()
 physical_devices = tf.config.list_physical_devices('GPU')
 tf.config.experimental.set_memory_growth(physical_devices[0], True)
-tf.config.experimental.set_virtual_device_configuration(
-        physical_devices[0],
-        [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=4096)])
+#tf.config.experimental.set_virtual_device_configuration(
+#        physical_devices[0],
+#        [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=8192)])
 
-generator = tf.keras.models.load_model('256_v2_big_generator_pretrain_stage1_38499.h5')#, custom_objects={'Mish': Mish})
+
 arch = 'clean'
 channel_multiplier = 2
 model_path = 'GFPGANv1.4.pth'
-restorer = GFPGANer(
-    model_path=model_path,
-    upscale=0.8,
-    arch=arch,
-    channel_multiplier=channel_multiplier,
-    bg_upsampler=None
-)
+restorer = None
+generator = None
+def load_restorer():
+    global restorer
+    if isinstance(restorer, NoneType):
+        restorer = GFPGANer(
+            model_path=model_path,
+            upscale=0.8,
+            arch=arch,
+            channel_multiplier=channel_multiplier,
+            bg_upsampler=None
+        )
+    return restorer
 
+def load_generator():
+    global generator
+    if isinstance(generator, NoneType):
+        generator = tf.keras.models.load_model('256_v2_big_generator_pretrain_stage1_38499.h5')#, custom_objects={'Mish': Mish})
+    return generator
 
 device = torch.device(0)
 gpu_memory_total = round(torch.cuda.get_device_properties(device).total_memory / 1024**3,2)  # Convert bytes to GB
@@ -234,10 +246,10 @@ def main():
                     facer = frame[y1:y2, x1:x2]
                     if not args['cli']:
                         if enhancer_choice.get() == 0:
-                            facex = upscale_image(facer, generator)
+                            facex = upscale_image(facer, load_generator())
                         else:
                             with THREAD_SEMAPHORE:
-                                cropped_faces, restored_faces, facex = restorer.enhance(
+                                cropped_faces, restored_faces, facex = load_restorer().enhance(
                                     facer,
                                     has_aligned=False,
                                     only_center_face=False,
@@ -246,14 +258,14 @@ def main():
                     else:
                         if args['face_enhancer'] == 'gfpgan':
                             with THREAD_SEMAPHORE:
-                                cropped_faces, restored_faces, facex = restorer.enhance(
+                                cropped_faces, restored_faces, facex = load_restorer().enhance(
                                     facer,
                                     has_aligned=False,
                                     only_center_face=False,
                                     paste_back=True
                                 )
                         elif args['face_enhancer'] == 'ffe':
-                            facex = upscale_image(facer, generator)
+                            facex = upscale_image(facer, load_generator())
                     facex = cv2.resize(facex, ((x2-x1), (y2-y1)))
                     frame[y1:y2, x1:x2] = facex
                 except Exception as e:
@@ -268,7 +280,7 @@ def main():
         except:
             test1 = False
         if test1 or (args['face_enhancer'] != 'none' and args['cli']):
-            cropped_faces, restored_faces, image = restorer.enhance(
+            cropped_faces, restored_faces, image = load_restorer().enhance(
                         image,
                         has_aligned=False,
                         only_center_face=False,
