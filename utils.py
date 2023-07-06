@@ -41,6 +41,7 @@ def prepare_models(args):
     #face_analyser.models.pop("landmark_2d_106")
     #face_analyser.models.pop("genderage")
     return face_swapper, face_analyser
+
 def upscale_image(image, generator ):
     image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
     image = cv2.resize(image, (256, 256))
@@ -52,7 +53,7 @@ def upscale_image(image, generator ):
     image = np.expand_dims(image, axis=0)
 
     # Generate the upscaled image
-    output = generator.predict(image, verbose=0)
+    output = generator(image)#.predict(image, verbose=0)
 
     # Denormalize the output image to [0, 255]
     #output = (output + 1) * 127.5

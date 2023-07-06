@@ -13,6 +13,9 @@ from utils import add_audio_from_video, ThreadWithReturnValue, prepare_models, u
 import tensorflow as tf
 from tkinter import filedialog
 from tkinter.filedialog import asksaveasfilename
+from tkinter import messagebox
+def show_error():
+    messagebox.showerror("Error", "Preview mode does not work with camera, so please use normal mode")
 def mish_activation(x):
     return x * tf.keras.activations.tanh(tf.keras.activations.softplus(x))
 
@@ -34,14 +37,12 @@ parser.add_argument('--image', help='Include if the target is image', dest='imag
 parser.add_argument('--cli', help='run in cli mode, turns off preview and now accepts switch of face enhancer from the command', dest='cli', action='store_true')
 parser.add_argument('--face-enhancer', help='face enhancer, choice works only in cli mode. In gui mode, you need to choose from gui', dest='face_enhancer', default='none', choices=['none','gfpgan', 'ffe'])
 parser.add_argument('--no-face-swapper', '--no-swapper', help='disables face swapper', dest='no_faceswap', action='store_true')
+parser.add_argument('--preview-mode', help='experimental: preview mode', dest='preview', action='store_true')
 args = {}
 for name, value in vars(parser.parse_args()).items():
     args[name] = value
 width, height = args['resolution'].split('x')
 width, height = int(width), int(height)
-if (args['target_path'].isdigit()):
-    args['target_path'] = int(args['target_path'])
-
 def select_face():
     global args, select_face_label
     args['face'] = filedialog.askopenfilename(title="Select a face")
@@ -100,7 +101,11 @@ if not args['cli']:
     if thread_amount_temp != "":
         args['threads'] = int(thread_amount_temp)
 
-
+if (args['target_path'].isdigit()):
+    args['target_path'] = int(args['target_path'])
+if args['preview'] and isinstance(args['target_path'], int):
+    show_error()
+    exit()
 THREAD_SEMAPHORE = threading.Semaphore()
 physical_devices = tf.config.list_physical_devices('GPU')
 tf.config.experimental.set_memory_growth(physical_devices[0], True)
@@ -155,9 +160,17 @@ def set_adjust_value():
     entry_y1.insert(0, adjust_y1)
     entry_x2.insert(0, adjust_x2)
     entry_y2.insert(0, adjust_y2)
+def count_frames(video_path):
+    video = cv2.VideoCapture(video_path)
+    total_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+    video.release()
+    return total_frames
 if not args['cli']:
     root = tk.Tk()
-    root.geometry("200x330")
+    if not args['preview']:
+        root.geometry("200x330")
+    else:
+        root.geometry("250x420")
     faceswapper_checkbox_var = tk.IntVar(value=1)
     faceswapper_checkbox = ttk.Checkbutton(root, text="Face swapper", variable=faceswapper_checkbox_var)
     faceswapper_checkbox.pack()
@@ -208,9 +221,36 @@ if not args['cli']:
     button = tk.Button(root, text="Set Values", command=set_adjust_value)
     button.pack()  # Add the button to the window
 
+    if args['preview']:
+        frame_index = 0
+        def on_slider_move(value):
+            global frame_index
+            frame_index = int(value)
+            #print("Slider value:", value)
+        def edit_index(amount):
+            global frame_index
+            frame_index += amount
+            slider.set(frame_index)
+        frame_amount = count_frames(args['target_path'])
+        slider = tk.Scale(root, from_=1, to=frame_amount, orient=tk.HORIZONTAL, command=on_slider_move)
+        slider.pack()
+        frame_count_label = tk.Label(root, text=str(frame_amount))
+        frame_count_label.pack(fill=tk.X)
+        button_width = root.winfo_width() // 2
+        frame_back_button = tk.Button(root, text='<', width=button_width, command=lambda: edit_index(-1))
+        frame_back_button.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        frame_forward_button = tk.Button(root, text='>', width=button_width, command=lambda: edit_index(1))
+        frame_forward_button.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+def get_nth_frame(cap, number):
+    cap.set(cv2.CAP_PROP_POS_FRAMES, number)
+    ret, frame = cap.read()
+    if ret:
+        return frame
+    return None
 
 def main():
-    global args, width, height
+    global args, width, height, frame_index
     face_swapper, face_analyser = prepare_models(args)
     #try:
     input_face = cv2.imread(args['face'])
@@ -313,21 +353,25 @@ def main():
         temp = []
         bbox = []
         start = time.time()
-        for i in range(int(args['threads'])):
-            ret, frame = cap.read()
-            if not ret:
-                break
-            temp.append(ThreadWithReturnValue(target=face_analyser_thread, args=(frame,)))
-            temp[-1].start()
-        while cap.isOpened():
-            try:
+        if not args['preview']:
+            for i in range(int(args['threads'])):
                 ret, frame = cap.read()
                 if not ret:
                     break
                 temp.append(ThreadWithReturnValue(target=face_analyser_thread, args=(frame,)))
                 temp[-1].start()
-                while len(temp) >= int(args['threads']):
-                    bbox, frame = temp.pop(0).join()
+        while cap.isOpened():
+            try:
+                if not args['preview']:
+                    ret, frame = cap.read()
+                    if not ret:
+                        break
+                    temp.append(ThreadWithReturnValue(target=face_analyser_thread, args=(frame,)))
+                    temp[-1].start()
+                    while len(temp) >= int(args['threads']):
+                        bbox, frame = temp.pop(0).join()
+                else:
+                    bbox, frame = face_analyser_thread(get_nth_frame(cap, frame_index))
                 if not args['cli']:
                     if show_bbox_var.get() == 1:
                         for i in bbox: 
@@ -368,8 +412,13 @@ def main():
                 progressbar.set_description(f"VRAM: {round(gpu_memory_total - torch.cuda.mem_get_info(device)[0] / 1024**3,2)}/{gpu_memory_total} GB, usage: {torch.cuda.utilization(device=device)}%")
             if not args['cli']:
                 cv2.imshow('Face Detection', frame)
-            out.write(frame)
+            if not args['preview']:
+                out.write(frame)
             progressbar.update(1)
+            if args['preview']:
+                old_number = frame_index
+                while frame_index == old_number:
+                    time.sleep(0.01)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
     out.release()
