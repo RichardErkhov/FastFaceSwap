@@ -34,6 +34,8 @@ flags implemented:
 
 --face-enhancer: face enhancer, choice works only in cli mode. In gui mode, you need to choose from gui. Available options:
 
+--preview, --preview-mode: !!experimental, might break something!! enables preview mode, doesn't work with camera. 
+
 1) none (default)
 2) gfpgan
 3) ffe (fast face enhancer)
