@@ -37,7 +37,7 @@ parser.add_argument('--image', help='Include if the target is image', dest='imag
 parser.add_argument('--cli', help='run in cli mode, turns off preview and now accepts switch of face enhancer from the command', dest='cli', action='store_true')
 parser.add_argument('--face-enhancer', help='face enhancer, choice works only in cli mode. In gui mode, you need to choose from gui', dest='face_enhancer', default='none', choices=['none','gfpgan', 'ffe'])
 parser.add_argument('--no-face-swapper', '--no-swapper', help='disables face swapper', dest='no_faceswap', action='store_true')
-parser.add_argument('--preview-mode', help='experimental: preview mode', dest='preview', action='store_true')
+parser.add_argument('--preview-mode', '--preview', help='experimental: preview mode', dest='preview', action='store_true')
 args = {}
 for name, value in vars(parser.parse_args()).items():
     args[name] = value
