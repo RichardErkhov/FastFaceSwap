@@ -9,13 +9,15 @@ import threading
 import os
 import torch
 import time
-from utils import add_audio_from_video, ThreadWithReturnValue, prepare_models, upscale_image
+from utils import add_audio_from_video, ThreadWithReturnValue, prepare_models, upscale_image, VideoCaptureThread
 import tensorflow as tf
 from tkinter import filedialog
 from tkinter.filedialog import asksaveasfilename
 from tkinter import messagebox
 def show_error():
     messagebox.showerror("Error", "Preview mode does not work with camera, so please use normal mode")
+def show_warning():
+    messagebox.showwarning("Warning", "Camera is not properly working with experimental mode, sorry")
 def mish_activation(x):
     return x * tf.keras.activations.tanh(tf.keras.activations.softplus(x))
 
@@ -37,12 +39,20 @@ parser.add_argument('--image', help='Include if the target is image', dest='imag
 parser.add_argument('--cli', help='run in cli mode, turns off preview and now accepts switch of face enhancer from the command', dest='cli', action='store_true')
 parser.add_argument('--face-enhancer', help='face enhancer, choice works only in cli mode. In gui mode, you need to choose from gui', dest='face_enhancer', default='none', choices=['none','gfpgan', 'ffe'])
 parser.add_argument('--no-face-swapper', '--no-swapper', help='disables face swapper', dest='no_faceswap', action='store_true')
-parser.add_argument('--preview-mode', '--preview', help='experimental: preview mode', dest='preview', action='store_true')
+parser.add_argument('--preview-mode', help='experimental: preview mode', dest='preview', action='store_true')
+parser.add_argument('--experimental', help='experimental mode, enables features like buffered video reader', dest='experimental', action='store_true')
+
 args = {}
 for name, value in vars(parser.parse_args()).items():
     args[name] = value
 width, height = args['resolution'].split('x')
 width, height = int(width), int(height)
+if args['experimental']:
+    try:
+        from imutils.video import FileVideoStream
+    except ImportError:
+        print("In the experimental mode, you have to pip install imutils")
+        exit()
 def select_face():
     global args, select_face_label
     args['face'] = filedialog.askopenfilename(title="Select a face")
@@ -329,20 +339,35 @@ def main():
         cv2.imwrite(args['output'], image)
         print("image processing finished")
         return 
-
-    if args['camera_fix'] == True:
-        cap = cv2.VideoCapture(args['target_path'], cv2.CAP_DSHOW)
+    if not args['experimental']:
+        if args['camera_fix'] == True:
+            cap = cv2.VideoCapture(args['target_path'], cv2.CAP_DSHOW)
+        else:
+            cap = cv2.VideoCapture(args['target_path'])
+        if isinstance(args['target_path'], int):
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+        fourcc = cv2.VideoWriter_fourcc(*'H265')
+        cap.set(cv2.CAP_PROP_FOURCC, fourcc)
+        # Get the video's properties
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     else:
+        '''cap = VideoCaptureThread(args['target_path'], 30)
+        if isinstance(args['target_path'], int):
+            show_warning()
+        fps = cap.fps
+        width = int(cap.width)
+        height = int(cap.height)'''
         cap = cv2.VideoCapture(args['target_path'])
-    if isinstance(args['target_path'], int):
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
-    fourcc = cv2.VideoWriter_fourcc(*'H265')
-    cap.set(cv2.CAP_PROP_FOURCC, fourcc)
-    # Get the video's properties
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        cap.release()
+        del cap
+        cap = FileVideoStream(args['target_path']).start()
+        time.sleep(1.0)
     # Create a VideoWriter object to save the processed video
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     name = args['output']
@@ -355,17 +380,29 @@ def main():
         start = time.time()
         if not args['preview']:
             for i in range(int(args['threads'])):
-                ret, frame = cap.read()
-                if not ret:
-                    break
-                temp.append(ThreadWithReturnValue(target=face_analyser_thread, args=(frame,)))
-                temp[-1].start()
-        while cap.isOpened():
-            try:
-                if not args['preview']:
+                if args['experimental']:
+                    frame = cap.read()
+                    if isinstance(frame, NoneType):
+                        break
+                    
+                else:
                     ret, frame = cap.read()
                     if not ret:
                         break
+                temp.append(ThreadWithReturnValue(target=face_analyser_thread, args=(frame,)))
+                temp[-1].start()
+        #while cap.isOpened():
+        while True:
+            try:
+                if not args['preview']:
+                    if args['experimental']:
+                        frame = cap.read()
+                        if isinstance(frame, NoneType): #== None:
+                            break
+                    else:
+                        ret, frame = cap.read()
+                        if not ret:
+                            break
                     temp.append(ThreadWithReturnValue(target=face_analyser_thread, args=(frame,)))
                     temp[-1].start()
                     while len(temp) >= int(args['threads']):

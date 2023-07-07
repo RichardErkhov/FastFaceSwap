@@ -4,6 +4,9 @@ import onnxruntime as rt
 import insightface
 import cv2
 import numpy as np
+import threading
+import queue
+import time
 def add_audio_from_video(video_path, audio_video_path, output_path):
     ffmpeg_cmd = [
         'ffmpeg',
@@ -27,6 +30,74 @@ class ThreadWithReturnValue(Thread):
     def join(self, *args):
         Thread.join(self, *args)
         return self._return
+    
+class VideoCaptureThread:
+    def __init__(self, video_path, buffer_size):
+        self.video_path = video_path
+        self.buffer_size = buffer_size
+        self.frame_queue = queue.Queue(maxsize=buffer_size)
+        self.condition = threading.Condition()
+        self.thread = None
+        self.frame_counter = 0
+        self.start_time = 0
+        self.end_time = 0
+        self.width = None
+        self.height = None
+        self.fps = None
+        cap = cv2.VideoCapture(self.video_path)
+        self.fps = cap.get(cv2.CAP_PROP_FPS)
+        self.width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        self.height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        cap.release()
+        self.start()
+    def start(self):
+        self.thread = threading.Thread(target=self._capture_frames)
+        self.thread.start()
+
+    def stop(self):
+        with self.condition:
+            self.condition.notify_all()  # Unblock all threads
+        if self.thread:
+            self.thread.join()
+
+    def _capture_frames(self):
+        cap = cv2.VideoCapture(self.video_path)
+        fourcc = cv2.VideoWriter_fourcc(*'H265')
+        cap.set(cv2.CAP_PROP_FOURCC, fourcc)
+        try:
+            self.start_time = time.time()
+            while True:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+
+                with self.condition:
+                    # Wait until there is space in the buffer
+                    while self.frame_queue.full():
+                        self.condition.wait()
+
+                    self.frame_queue.put(frame)
+                    self.frame_counter += 1
+                    self.condition.notify_all()  # Notify all threads
+        finally:
+            self.end_time = time.time()
+            cap.release()
+
+            with self.condition:
+                self.frame_queue.put(None)
+                self.condition.notify_all()  # Notify all threads
+
+    def read(self):
+        with self.condition:
+            # Wait until there is a frame available in the buffer
+            while self.frame_queue.empty():
+                self.condition.wait()
+
+            frame = self.frame_queue.get()
+            self.condition.notify_all()  # Notify all threads
+            return frame
+
+
 def prepare_models(args):
     providers = rt.get_available_providers()
     sess_options = rt.SessionOptions()
