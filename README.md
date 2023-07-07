@@ -36,6 +36,8 @@ flags implemented:
 
 --preview, --preview-mode: !!experimental, might break something!! enables preview mode, doesn't work with camera. 
 
+--experimental: experimental mode to try to optimize the perfomance of reading of frames, sometimes is faster, but requires additional modules
+
 1) none (default)
 2) gfpgan
 3) ffe (fast face enhancer)
