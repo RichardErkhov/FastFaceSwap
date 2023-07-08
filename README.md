@@ -34,13 +34,14 @@ flags implemented:
 
 --face-enhancer: face enhancer, choice works only in cli mode. In gui mode, you need to choose from gui. Available options:
 
---preview, --preview-mode: !!experimental, might break something!! enables preview mode, doesn't work with camera. 
-
---experimental: experimental mode to try to optimize the perfomance of reading of frames, sometimes is faster, but requires additional modules
-
 1) none (default)
 2) gfpgan
 3) ffe (fast face enhancer)
+4) codeformer
+
+--preview, --preview-mode: !!experimental, might break something!! enables preview mode, doesn't work with camera. 
+
+--experimental: experimental mode to try to optimize the perfomance of reading of frames, sometimes is faster, but requires additional modules
 
 --no-face-swapper: disables face swapper
 
