@@ -11,3 +11,4 @@ tb-nightly
 tqdm
 yapf
 pynvml
+codeformer-pip==0.0.4

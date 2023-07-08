@@ -1,33 +1,14 @@
 from types import NoneType
-import cv2
 from threading import Thread
 from tqdm import tqdm
-import argparse
 import numpy as np
 from gfpgan import GFPGANer
-import threading
-import os
-import torch
-import time
-from utils import add_audio_from_video, ThreadWithReturnValue, prepare_models, upscale_image, VideoCaptureThread
+import threading, os, torch, time, cv2, argparse
+from utils import *
 import tensorflow as tf
 from tkinter import filedialog
 from tkinter.filedialog import asksaveasfilename
-from tkinter import messagebox
-def show_error():
-    messagebox.showerror("Error", "Preview mode does not work with camera, so please use normal mode")
-def show_warning():
-    messagebox.showwarning("Warning", "Camera is not properly working with experimental mode, sorry")
-def mish_activation(x):
-    return x * tf.keras.activations.tanh(tf.keras.activations.softplus(x))
-
-class Mish(tf.keras.layers.Layer):
-    def __init__(self, **kwargs):
-        super(Mish, self).__init__()
-
-    def call(self, inputs):
-        return mish_activation(inputs)
-tf.keras.utils.get_custom_objects().update({'Mish': Mish})
+from plugins.codeformer_app_cv2 import inference_app as codeformer
 parser = argparse.ArgumentParser()
 parser.add_argument('-f', '--face', help='use this face', dest='face', default="face.jpg")
 parser.add_argument('-t', '--target', help='replace this face. If camera, use integer like 0',default="0", dest='target_path')
@@ -37,11 +18,10 @@ parser.add_argument('-res', '--resolution', help='camera resolution, given in fo
 parser.add_argument('--threads', help='amount of gpu threads',default="2", dest='threads')
 parser.add_argument('--image', help='Include if the target is image', dest='image', action='store_true')
 parser.add_argument('--cli', help='run in cli mode, turns off preview and now accepts switch of face enhancer from the command', dest='cli', action='store_true')
-parser.add_argument('--face-enhancer', help='face enhancer, choice works only in cli mode. In gui mode, you need to choose from gui', dest='face_enhancer', default='none', choices=['none','gfpgan', 'ffe'])
+parser.add_argument('--face-enhancer', help='face enhancer, choice works only in cli mode. In gui mode, you need to choose from gui', dest='face_enhancer', default='none', choices=['none','gfpgan', 'ffe', 'codeformer'])
 parser.add_argument('--no-face-swapper', '--no-swapper', help='disables face swapper', dest='no_faceswap', action='store_true')
 parser.add_argument('--preview-mode', help='experimental: preview mode', dest='preview', action='store_true')
 parser.add_argument('--experimental', help='experimental mode, enables features like buffered video reader', dest='experimental', action='store_true')
-
 args = {}
 for name, value in vars(parser.parse_args()).items():
     args[name] = value
@@ -175,12 +155,13 @@ def count_frames(video_path):
     total_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
     video.release()
     return total_frames
+
 if not args['cli']:
     root = tk.Tk()
     if not args['preview']:
-        root.geometry("200x330")
+        root.geometry("200x420")
     else:
-        root.geometry("250x420")
+        root.geometry("250x540")
     faceswapper_checkbox_var = tk.IntVar(value=1)
     faceswapper_checkbox = ttk.Checkbutton(root, text="Face swapper", variable=faceswapper_checkbox_var)
     faceswapper_checkbox.pack()
@@ -192,6 +173,8 @@ if not args['cli']:
     r1.pack()
     r2 = tk.Radiobutton(root, text='gfpgan', variable=enhancer_choice, value = 1)
     r2.pack()
+    r3 = tk.Radiobutton(root, text='codeformer', variable=enhancer_choice, value = 2)
+    r3.pack()
 
 
 
@@ -230,7 +213,14 @@ if not args['cli']:
 
     button = tk.Button(root, text="Set Values", command=set_adjust_value)
     button.pack()  # Add the button to the window
-
+    codeformer_fidelity = 0.1
+    def on_codeformer_slider_move(value):
+        global codeformer_fidelity
+        codeformer_fidelity = value
+    label = tk.Label(root, text="Codeformer fidelity")
+    label.pack()
+    codeformer_slider = tk.Scale(root, from_=0.1, to=2.0, resolution=0.1,  orient=tk.HORIZONTAL)
+    codeformer_slider.pack()
     if args['preview']:
         frame_index = 0
         def on_slider_move(value):
@@ -242,9 +232,11 @@ if not args['cli']:
             frame_index += amount
             slider.set(frame_index)
         frame_amount = count_frames(args['target_path'])
+        label = tk.Label(root, text="frame number")
+        label.pack()
         slider = tk.Scale(root, from_=1, to=frame_amount, orient=tk.HORIZONTAL, command=on_slider_move)
         slider.pack()
-        frame_count_label = tk.Label(root, text=str(frame_amount))
+        frame_count_label = tk.Label(root, text=f"total frames: {frame_amount}")
         frame_count_label.pack(fill=tk.X)
         button_width = root.winfo_width() // 2
         frame_back_button = tk.Button(root, text='<', width=button_width, command=lambda: edit_index(-1))
@@ -252,12 +244,7 @@ if not args['cli']:
         frame_forward_button = tk.Button(root, text='>', width=button_width, command=lambda: edit_index(1))
         frame_forward_button.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-def get_nth_frame(cap, number):
-    cap.set(cv2.CAP_PROP_POS_FRAMES, number)
-    ret, frame = cap.read()
-    if ret:
-        return frame
-    return None
+
 
 def main():
     global args, width, height, frame_index
@@ -282,9 +269,11 @@ def main():
                 frame = face_swapper.get(frame, face, source_face, paste_back=True)   
             try:
                 test1 = checkbox_var.get() == 1 
+                test2 = not enhancer_choice.get() == 2
             except:
                 test1 = False
-            if test1 or (args['face_enhancer'] != 'none' and args['cli']):
+                test2 = False
+            if (test1 and test2) or (args['face_enhancer'] != 'none' and args['cli']):
                 try:
 
                     i = face.bbox
@@ -297,7 +286,7 @@ def main():
                     if not args['cli']:
                         if enhancer_choice.get() == 0:
                             facex = upscale_image(facer, load_generator())
-                        else:
+                        elif enhancer_choice.get() == 1:
                             with THREAD_SEMAPHORE:
                                 cropped_faces, restored_faces, facex = load_restorer().enhance(
                                     facer,
@@ -320,7 +309,16 @@ def main():
                     frame[y1:y2, x1:x2] = facex
                 except Exception as e:
                     print(e)
-
+        if not args['cli']:
+            if enhancer_choice.get() == 2:
+                #frame, background enhance bool true, face upscample bool true, upscale int 2,
+                # codeformer fidelity float 0.8, skip_if_no_face bool false 
+                frame = codeformer(frame, False, True, 1, codeformer_fidelity, False)
+        else:
+            if args['face_enhancer'] == 'codeformer':
+                #frame, background enhance bool true, face upscample bool true, upscale int 2,
+                # codeformer fidelity float 0.8, skip_if_no_face bool false 
+                frame = codeformer(frame, True, True, 1, 0.8, False)
         return bboxes, frame
     if args['image'] == True :
         image = cv2.imread(args['target_path'])

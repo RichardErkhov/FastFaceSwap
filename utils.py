@@ -7,6 +7,17 @@ import numpy as np
 import threading
 import queue
 import time
+from tkinter import messagebox
+import tensorflow as tf
+def mish_activation(x):
+    return x * tf.keras.activations.tanh(tf.keras.activations.softplus(x))
+
+class Mish(tf.keras.layers.Layer):
+    def __init__(self, **kwargs):
+        super(Mish, self).__init__()
+
+    def call(self, inputs):
+        return mish_activation(inputs)
 def add_audio_from_video(video_path, audio_video_path, output_path):
     ffmpeg_cmd = [
         'ffmpeg',
@@ -19,6 +30,13 @@ def add_audio_from_video(video_path, audio_video_path, output_path):
         output_path
     ]
     subprocess.run(ffmpeg_cmd, check=True)
+tf.keras.utils.get_custom_objects().update({'Mish': Mish})
+def get_nth_frame(cap, number):
+    cap.set(cv2.CAP_PROP_POS_FRAMES, number)
+    ret, frame = cap.read()
+    if ret:
+        return frame
+    return None
 class ThreadWithReturnValue(Thread):
     def __init__(self, group=None, target=None, name=None,
                 args=(), kwargs={}, Verbose=None):
@@ -131,3 +149,7 @@ def upscale_image(image, generator ):
 
     # Remove the batch dimension and return the final image
     return cv2.cvtColor((np.squeeze(output, axis=0) * 255.0), cv2.COLOR_BGR2RGB) 
+def show_error():
+    messagebox.showerror("Error", "Preview mode does not work with camera, so please use normal mode")
+def show_warning():
+    messagebox.showwarning("Warning", "Camera is not properly working with experimental mode, sorry")
