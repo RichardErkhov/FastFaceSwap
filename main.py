@@ -23,6 +23,8 @@ parser.add_argument('--no-face-swapper', '--no-swapper', help='disables face swa
 parser.add_argument('--preview-mode', help='experimental: preview mode', dest='preview', action='store_true')
 parser.add_argument('--experimental', help='experimental mode, enables features like buffered video reader', dest='experimental', action='store_true')
 parser.add_argument('--no-cuda', help='no cuda should be used', dest='nocuda', action='store_true')
+parser.add_argument('--low-memory', help='low memory usage attempt', dest='lowmem', action='store_true')
+
 args = {}
 for name, value in vars(parser.parse_args()).items():
     args[name] = value

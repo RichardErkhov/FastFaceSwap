@@ -193,8 +193,12 @@ def prepare_models(args):
         face_swapper = insightface.model_zoo.get_model("inswapper_128.onnx", session_options=sess_options, providers=providers)
     else:
         face_swapper = None
-    face_analyser = insightface.app.FaceAnalysis(name='buffalo_l', providers=providers)
-    face_analyser.prepare(ctx_id=0, det_size=(640, 640))
+    if args['lowmem']:
+        face_analyser = insightface.app.FaceAnalysis(name='buffalo_l', providers=providers)
+        face_analyser.prepare(ctx_id=0, det_size=(256, 256))
+    else:
+        face_analyser = insightface.app.FaceAnalysis(name='buffalo_l', providers=providers)
+        face_analyser.prepare(ctx_id=0, det_size=(640, 640))
     #face_analyser.models.pop("landmark_3d_68")
     #face_analyser.models.pop("landmark_2d_106")
     #face_analyser.models.pop("genderage")
