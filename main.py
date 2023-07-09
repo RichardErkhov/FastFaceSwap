@@ -18,10 +18,11 @@ parser.add_argument('-res', '--resolution', help='camera resolution, given in fo
 parser.add_argument('--threads', help='amount of gpu threads',default="2", dest='threads')
 parser.add_argument('--image', help='Include if the target is image', dest='image', action='store_true')
 parser.add_argument('--cli', help='run in cli mode, turns off preview and now accepts switch of face enhancer from the command', dest='cli', action='store_true')
-parser.add_argument('--face-enhancer', help='face enhancer, choice works only in cli mode. In gui mode, you need to choose from gui', dest='face_enhancer', default='none', choices=['none','gfpgan', 'ffe', 'codeformer'])
+parser.add_argument('--face-enhancer', help='face enhancer, choice works only in cli mode. In gui mode, you need to choose from gui', dest='face_enhancer', default='none', choices=['none','gfpgan', 'ffe', 'codeformer', 'gpfgan_onnx'])
 parser.add_argument('--no-face-swapper', '--no-swapper', help='disables face swapper', dest='no_faceswap', action='store_true')
 parser.add_argument('--preview-mode', help='experimental: preview mode', dest='preview', action='store_true')
 parser.add_argument('--experimental', help='experimental mode, enables features like buffered video reader', dest='experimental', action='store_true')
+parser.add_argument('--no-cuda', help='no cuda should be used', dest='nocuda', action='store_true')
 args = {}
 for name, value in vars(parser.parse_args()).items():
     args[name] = value
@@ -128,7 +129,8 @@ def load_generator():
     return generator
 
 device = torch.device(0)
-gpu_memory_total = round(torch.cuda.get_device_properties(device).total_memory / 1024**3,2)  # Convert bytes to GB
+if not args['nocuda']:
+    gpu_memory_total = round(torch.cuda.get_device_properties(device).total_memory / 1024**3,2)  # Convert bytes to GB
 adjust_x1 = 50
 adjust_y1 = 50
 adjust_x2 = 50
@@ -159,9 +161,9 @@ def count_frames(video_path):
 if not args['cli']:
     root = tk.Tk()
     if not args['preview']:
-        root.geometry("200x420")
+        root.geometry("200x450")
     else:
-        root.geometry("250x540")
+        root.geometry("250x570")
     faceswapper_checkbox_var = tk.IntVar(value=1)
     faceswapper_checkbox = ttk.Checkbutton(root, text="Face swapper", variable=faceswapper_checkbox_var)
     faceswapper_checkbox.pack()
@@ -175,6 +177,8 @@ if not args['cli']:
     r2.pack()
     r3 = tk.Radiobutton(root, text='codeformer', variable=enhancer_choice, value = 2)
     r3.pack()
+    r4 = tk.Radiobutton(root, text='gfpgan onnx', variable=enhancer_choice, value = 3)
+    r4.pack()
 
 
 
@@ -243,8 +247,12 @@ if not args['cli']:
         frame_back_button.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         frame_forward_button = tk.Button(root, text='>', width=button_width, command=lambda: edit_index(1))
         frame_forward_button.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-
-
+gfpgan_onnx_model = None
+def load_gfpganonnx():
+    global gfpgan_onnx_model
+    if isinstance(gfpgan_onnx_model, NoneType):
+        gfpgan_onnx_model = GFPGAN_onnxruntime(model_path="GFPGANv1.4.onnx")
+    return gfpgan_onnx_model
 
 def main():
     global args, width, height, frame_index
@@ -255,7 +263,7 @@ def main():
     #except:
     #    print("You forgot to add the input face")
     #    exit()
-        
+    #load_gfpganonnx()
     def face_analyser_thread(frame):
         faces = face_analyser.get(frame)
         bboxes = []
@@ -274,41 +282,45 @@ def main():
                 test1 = False
                 test2 = False
             if (test1 and test2) or (args['face_enhancer'] != 'none' and args['cli']):
-                try:
+                #try:
 
-                    i = face.bbox
-                    x1, y1, x2, y2 = int(i[0]),int(i[1]),int(i[2]),int(i[3])
-                    x1 = max(x1-adjust_x1, 0)
-                    y1 = max(y1-adjust_y1, 0)
-                    x2 = min(x2+adjust_x2, width)
-                    y2 = min(y2+adjust_y2, height)
-                    facer = frame[y1:y2, x1:x2]
-                    if not args['cli']:
-                        if enhancer_choice.get() == 0:
-                            facex = upscale_image(facer, load_generator())
-                        elif enhancer_choice.get() == 1:
-                            with THREAD_SEMAPHORE:
-                                cropped_faces, restored_faces, facex = load_restorer().enhance(
-                                    facer,
-                                    has_aligned=False,
-                                    only_center_face=False,
-                                    paste_back=True
-                                )
-                    else:
-                        if args['face_enhancer'] == 'gfpgan':
-                            with THREAD_SEMAPHORE:
-                                cropped_faces, restored_faces, facex = load_restorer().enhance(
-                                    facer,
-                                    has_aligned=False,
-                                    only_center_face=False,
-                                    paste_back=True
-                                )
-                        elif args['face_enhancer'] == 'ffe':
-                            facex = upscale_image(facer, load_generator())
-                    facex = cv2.resize(facex, ((x2-x1), (y2-y1)))
-                    frame[y1:y2, x1:x2] = facex
-                except Exception as e:
-                    print(e)
+                i = face.bbox
+                x1, y1, x2, y2 = int(i[0]),int(i[1]),int(i[2]),int(i[3])
+                x1 = max(x1-adjust_x1, 0)
+                y1 = max(y1-adjust_y1, 0)
+                x2 = min(x2+adjust_x2, width)
+                y2 = min(y2+adjust_y2, height)
+                facer = frame[y1:y2, x1:x2]
+                if not args['cli']:
+                    if enhancer_choice.get() == 0:
+                        facex = upscale_image(facer, load_generator())
+                    elif enhancer_choice.get() == 1:
+                        with THREAD_SEMAPHORE:
+                            cropped_faces, restored_faces, facex = load_restorer().enhance(
+                                facer,
+                                has_aligned=False,
+                                only_center_face=False,
+                                paste_back=True
+                            )
+                    elif enhancer_choice.get() == 3:
+                        facex, _ = load_gfpganonnx().forward(facer)
+                else:
+                    if args['face_enhancer'] == 'gfpgan':
+                        with THREAD_SEMAPHORE:
+                            cropped_faces, restored_faces, facex = load_restorer().enhance(
+                                facer,
+                                has_aligned=False,
+                                only_center_face=False,
+                                paste_back=True
+                            )
+                    elif args['face_enhancer'] == 'ffe':
+                        facex = upscale_image(facer, load_generator())
+                    elif args['face_enhancer'] == "gpfgan_onnx":
+                        facex, _ = load_gfpganonnx().forward(facer)
+                facex = cv2.resize(facex, ((x2-x1), (y2-y1)))
+                frame[y1:y2, x1:x2] = facex
+                #except Exception as e:
+                #    print(e)
         if not args['cli']:
             if enhancer_choice.get() == 2:
                 #frame, background enhance bool true, face upscample bool true, upscale int 2,
@@ -420,7 +432,8 @@ def main():
                             cv2.rectangle(frame, (x1,y1), (x2,y2), color, thickness)
                 if time.time() - start > 1:
                     start = time.time()
-                    progressbar.set_description(f"VRAM: {round(gpu_memory_total - torch.cuda.mem_get_info(device)[0] / 1024**3,2)}/{gpu_memory_total} GB, usage: {torch.cuda.utilization(device=device)}%")
+                    if not args['nocuda']:
+                        progressbar.set_description(f"VRAM: {round(gpu_memory_total - torch.cuda.mem_get_info(device)[0] / 1024**3,2)}/{gpu_memory_total} GB, usage: {torch.cuda.utilization(device=device)}%")
                 if not args['cli']:
                     cv2.imshow('Face Detection', frame)
                 out.write(frame)
@@ -444,7 +457,8 @@ def main():
                         cv2.rectangle(frame, (x1,y1), (x2,y2), color, thickness)
             if time.time() - start > 1:
                 start = time.time()
-                progressbar.set_description(f"VRAM: {round(gpu_memory_total - torch.cuda.mem_get_info(device)[0] / 1024**3,2)}/{gpu_memory_total} GB, usage: {torch.cuda.utilization(device=device)}%")
+                if not args['nocuda']:
+                    progressbar.set_description(f"VRAM: {round(gpu_memory_total - torch.cuda.mem_get_info(device)[0] / 1024**3,2)}/{gpu_memory_total} GB, usage: {torch.cuda.utilization(device=device)}%")
             if not args['cli']:
                 cv2.imshow('Face Detection', frame)
             if not args['preview']:
