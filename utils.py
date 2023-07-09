@@ -189,6 +189,7 @@ def prepare_models(args):
     providers = rt.get_available_providers()
     sess_options = rt.SessionOptions()
     sess_options.intra_op_num_threads = 8
+    sess_options.graph_optimization_level = rt.GraphOptimizationLevel.ORT_DISABLE_ALL #Varying with all the options
     if not args['no_faceswap']:
         face_swapper = insightface.model_zoo.get_model("inswapper_128.onnx", session_options=sess_options, providers=providers)
     else:
