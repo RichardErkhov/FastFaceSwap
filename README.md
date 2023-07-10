@@ -45,6 +45,8 @@ flags implemented:
 
 --no-face-swapper: disables face swapper
 
+--lowmem, --low-memory: attempt to make code available for people with low VRAM, might result in lower quality
+
 example:
 ``` python main.py -f test.jpg -t "C:/Users/user/Desktop/video.mp4" -o output/test.mp4 --threads 12 ```
 
