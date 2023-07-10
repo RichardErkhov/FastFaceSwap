@@ -14,12 +14,17 @@ parser.add_argument('--preview-mode', help='experimental: preview mode', dest='p
 parser.add_argument('--experimental', help='experimental mode, enables features like buffered video reader', dest='experimental', action='store_true')
 parser.add_argument('--no-cuda', help='no cuda should be used', dest='nocuda', action='store_true')
 parser.add_argument('--low-memory', '--lowmem', help='low memory usage attempt', dest='lowmem', action='store_true')
-
+parser.add_argument('--batch', help='bathc processing mode, after the argument write which suffix should the output files have', dest='batch', default='')
 args = {}
 for name, value in vars(parser.parse_args()).items():
     args[name] = value
 width, height = args['resolution'].split('x')
 width, height = int(width), int(height)
+if args['batch'] != "" and not args['batch'].endswith(".mp4"):
+    args['batch'] += '.mp4'
+import os
+#just a fix, sometimes speeds up things
+os.environ['OMP_NUM_THREADS'] = '1'
 from types import NoneType
 from threading import Thread
 from tqdm import tqdm
@@ -44,12 +49,19 @@ if args['experimental']:
         exit()
 def select_face():
     global args, select_face_label
-    args['face'] = filedialog.askopenfilename(title="Select a face")
+    filex = askopenfilename(title="Select a face")
+    if filex:
+        args['face'] = filex
     select_face_label.config(text=f'Face filename: {args["face"]}')
 
 def select_target():
     global args, select_target_label
-    args['target_path'] = filedialog.askopenfilename(title="Select a target")
+    if args['batch'] == "":
+        filex = askopenfilename(title="Select a target")
+    else:
+        filex = askdirectory(initialdir="target")
+    if filex:
+        args['target_path'] = filex
     select_target_label.config(text=f'Target filename: {args["target_path"]}')
 def select_camera():
     global args, select_target_label
@@ -57,17 +69,22 @@ def select_camera():
     select_target_label.config(text=f'Target filename: {args["target_path"]}')
 def select_output():
     global args, select_output_label
-    filename, ext = 'output.mp4', '.mp4'
-    if args['image']:
-        filename, ext = 'output.png', '.png'
-    args['output'] = asksaveasfilename(initialfile=filename, defaultextension=ext, filetypes=[("All Files","*.*"),("Videos","*.mp4")])
+    if args['batch'] == "":
+        filename, ext = 'output.mp4', '.mp4'
+        if args['image']:
+            filename, ext = 'output.png', '.png'
+        filex = asksaveasfilename(initialfile=filename, defaultextension=ext, filetypes=[("All Files","*.*"),("Videos","*.mp4")])
+    else:
+        filex = askdirectory(initialdir="output")
+    if filex:
+        args['output'] = filex
     select_output_label.config(text=f'Output filename: {args["output"]}')
+
     
 if not args['cli']:
     import tkinter as tk
     from tkinter import ttk
-    from tkinter import filedialog
-    from tkinter.filedialog import asksaveasfilename
+    from tkinter.filedialog import asksaveasfilename, askdirectory, askopenfilename
     def finish(menu):
         global thread_amount_temp
         thread_amount_temp = thread_amount_input.get()
@@ -248,6 +265,16 @@ def load_gfpganonnx():
         gfpgan_onnx_model = GFPGAN_onnxruntime(model_path="GFPGANv1.4.onnx")
     return gfpgan_onnx_model
 
+def restorer_enhance(facer):
+    with THREAD_SEMAPHORE:
+        cropped_faces, restored_faces, facex = load_restorer().enhance(
+            facer,
+            has_aligned=False,
+            only_center_face=False,
+            paste_back=True
+        )
+    return facex
+
 def main():
     global args, width, height, frame_index
     face_swapper, face_analyser = prepare_models(args)
@@ -283,24 +310,12 @@ def main():
                         if enhancer_choice.get() == 0:
                             facex = upscale_image(facer, load_generator())
                         elif enhancer_choice.get() == 1:
-                            with THREAD_SEMAPHORE:
-                                cropped_faces, restored_faces, facex = load_restorer().enhance(
-                                    facer,
-                                    has_aligned=False,
-                                    only_center_face=False,
-                                    paste_back=True
-                                )
+                            facex = restorer_enhance(facer)
                         elif enhancer_choice.get() == 3:
                             facex, _ = load_gfpganonnx().forward(facer)
                     else:
                         if args['face_enhancer'] == 'gfpgan':
-                            with THREAD_SEMAPHORE:
-                                cropped_faces, restored_faces, facex = load_restorer().enhance(
-                                    facer,
-                                    has_aligned=False,
-                                    only_center_face=False,
-                                    paste_back=True
-                                )
+                            facex = restorer_enhance(facer)
                         elif args['face_enhancer'] == 'ffe':
                             facex = upscale_image(facer, load_generator())
                         elif args['face_enhancer'] == "gpfgan_onnx":
@@ -326,72 +341,92 @@ def main():
         except:
             test1 = False
         if test1 or (args['face_enhancer'] != 'none' and args['cli']):
-            cropped_faces, restored_faces, image = load_restorer().enhance(
-                        image,
-                        has_aligned=False,
-                        only_center_face=False,
-                        paste_back=True
-                    )
+            image = restorer_enhance(image)
         cv2.imwrite(args['output'], image)
         print("image processing finished")
         return 
-    if not args['experimental']:
-        if args['camera_fix'] == True:
-            cap = cv2.VideoCapture(args['target_path'], cv2.CAP_DSHOW)
+    caps = []
+    if args['batch'] == '':
+        if not args['experimental']:
+            if args['camera_fix'] == True:
+                cap = cv2.VideoCapture(args['target_path'], cv2.CAP_DSHOW)
+            else:
+                cap = cv2.VideoCapture(args['target_path'])
+            if isinstance(args['target_path'], int):
+                cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+                cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+            fourcc = cv2.VideoWriter_fourcc(*'H265')
+            cap.set(cv2.CAP_PROP_FOURCC, fourcc)
+            # Get the video's properties
+            fps = cap.get(cv2.CAP_PROP_FPS)
+            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         else:
+            '''cap = VideoCaptureThread(args['target_path'], 30)
+            if isinstance(args['target_path'], int):
+                show_warning()
+            fps = cap.fps
+            width = int(cap.width)
+            height = int(cap.height)'''
             cap = cv2.VideoCapture(args['target_path'])
-        if isinstance(args['target_path'], int):
-            cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
-        fourcc = cv2.VideoWriter_fourcc(*'H265')
-        cap.set(cv2.CAP_PROP_FOURCC, fourcc)
-        # Get the video's properties
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    else:
-        '''cap = VideoCaptureThread(args['target_path'], 30)
-        if isinstance(args['target_path'], int):
-            show_warning()
-        fps = cap.fps
-        width = int(cap.width)
-        height = int(cap.height)'''
-        cap = cv2.VideoCapture(args['target_path'])
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        cap.release()
-        del cap
-        cap = FileVideoStream(args['target_path']).start()
-        time.sleep(1.0)
-    # Create a VideoWriter object to save the processed video
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    name = args['output']
-    if isinstance(args['target_path'], str):
-        name = f"{args['output']}_temp.mp4"
-    out = cv2.VideoWriter(name, fourcc, fps, (width, height))
-    with tqdm() as progressbar:
-        temp = []
-        bbox = []
-        start = time.time()
-        if not args['preview']:
-            for i in range(int(args['threads'])):
-                if args['experimental']:
-                    frame = cap.read()
-                    if isinstance(frame, NoneType):
-                        break
-                else:
-                    ret, frame = cap.read()
-                    if not ret:
-                        break
-                temp.append(ThreadWithReturnValue(target=face_analyser_thread, args=(frame,)))
-                temp[-1].start()
-        while True:
-            try:
-                if not args['preview']:
+            fps = cap.get(cv2.CAP_PROP_FPS)
+            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            cap.release()
+            del cap
+            cap = FileVideoStream(args['target_path']).start()
+            time.sleep(1.0)
+        # Create a VideoWriter object to save the processed video
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        name = args['output']
+        if isinstance(args['target_path'], str):
+            name = f"{args['output']}_temp.mp4"
+        out = cv2.VideoWriter(name, fourcc, fps, (width, height))
+        caps.append([cap, fps, width, height, out, name, args['target_path']])
+    if args['batch'] != '':
+        files = os.listdir(args['target_path'])
+        for file in files:
+            if not args['experimental']:
+                if args['camera_fix'] == True:
+                    print("no need for camera_fix, there's not camera available in batch processing")
+                cap = cv2.VideoCapture(os.path.join(args['target_path'], file))
+                fps = cap.get(cv2.CAP_PROP_FPS)
+                fourcc = cv2.VideoWriter_fourcc(*'H265')
+                cap.set(cv2.CAP_PROP_FOURCC, fourcc)
+                width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            else:
+                '''cap = VideoCaptureThread(args['target_path'], 30)
+                if isinstance(args['target_path'], int):
+                    show_warning()
+                fps = cap.fps
+                width = int(cap.width)
+                height = int(cap.height)'''
+                cap = cv2.VideoCapture(os.path.join(args['target_path'], file))
+                fps = cap.get(cv2.CAP_PROP_FPS)
+                width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                cap.release()
+                del cap
+                # yes, might overflow is too many files, well, it's experimental lol, what do you expect?
+                cap = FileVideoStream(os.path.join(args['target_path'], file)).start() 
+                time.sleep(1.0)
+
+            # Create a VideoWriter object to save the processed video
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            name = os.path.join(args['output'], f"{file}{args['batch']}_temp.mp4")#f"{args['output']}_temp{args['batch']}.mp4"
+            out = cv2.VideoWriter(name, fourcc, fps, (width, height))
+            caps.append([cap, fps, width, height, out, name, file])
+    for cap, fps, width, height, out, name, file in caps:
+        with tqdm() as progressbar:
+            temp = []
+            bbox = []
+            start = time.time()
+            if not args['preview']:
+                for i in range(int(args['threads'])):
                     if args['experimental']:
                         frame = cap.read()
-                        if isinstance(frame, NoneType): #== None:
+                        if isinstance(frame, NoneType):
                             break
                     else:
                         ret, frame = cap.read()
@@ -399,10 +434,48 @@ def main():
                             break
                     temp.append(ThreadWithReturnValue(target=face_analyser_thread, args=(frame,)))
                     temp[-1].start()
-                    while len(temp) >= int(args['threads']):
-                        bbox, frame = temp.pop(0).join()
-                else:
-                    bbox, frame = face_analyser_thread(get_nth_frame(cap, frame_index))
+            while True:
+                try:
+                    if not args['preview']:
+                        if args['experimental']:
+                            frame = cap.read()
+                            if isinstance(frame, NoneType): #== None:
+                                break
+                        else:
+                            ret, frame = cap.read()
+                            if not ret:
+                                break
+                        temp.append(ThreadWithReturnValue(target=face_analyser_thread, args=(frame,)))
+                        temp[-1].start()
+                        while len(temp) >= int(args['threads']):
+                            bbox, frame = temp.pop(0).join()
+                    else:
+                        bbox, frame = face_analyser_thread(get_nth_frame(cap, frame_index))
+                    if not args['cli']:
+                        if show_bbox_var.get() == 1:
+                            for i in bbox: 
+                                x1, y1, x2, y2 = int(i[0]),int(i[1]),int(i[2]),int(i[3])
+                                x1 = max(x1-adjust_x1, 0)
+                                y1 = max(y1-adjust_y1, 0)
+                                x2 = min(x2+adjust_x2, width)
+                                y2 = min(y2+adjust_y2, height)
+                                color = (0, 255, 0)  # Green color (BGR format)
+                                thickness = 2  # Line thickness
+                                cv2.rectangle(frame, (x1,y1), (x2,y2), color, thickness)
+                    if time.time() - start > 1:
+                        start = time.time()
+                        if not args['nocuda']:
+                            progressbar.set_description(f"VRAM: {round(gpu_memory_total - torch.cuda.mem_get_info(device)[0] / 1024**3,2)}/{gpu_memory_total} GB, usage: {torch.cuda.utilization(device=device)}%")
+                    if not args['cli']:
+                        cv2.imshow('Face Detection', frame)
+                    out.write(frame)
+                    progressbar.update(1)
+                    if cv2.waitKey(1) & 0xFF == ord('q'):
+                        break
+                except KeyboardInterrupt:
+                    break
+            for i in temp:
+                bbox, frame = i.join()
                 if not args['cli']:
                     if show_bbox_var.get() == 1:
                         for i in bbox: 
@@ -420,48 +493,34 @@ def main():
                         progressbar.set_description(f"VRAM: {round(gpu_memory_total - torch.cuda.mem_get_info(device)[0] / 1024**3,2)}/{gpu_memory_total} GB, usage: {torch.cuda.utilization(device=device)}%")
                 if not args['cli']:
                     cv2.imshow('Face Detection', frame)
-                out.write(frame)
+                if not args['preview']:
+                    out.write(frame)
                 progressbar.update(1)
+                if args['preview']:
+                    old_number = frame_index
+                    while frame_index == old_number:
+                        time.sleep(0.01)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
-            except KeyboardInterrupt:
-                break
-        for i in temp:
-            bbox, frame = i.join()
-            if not args['cli']:
-                if show_bbox_var.get() == 1:
-                    for i in bbox: 
-                        x1, y1, x2, y2 = int(i[0]),int(i[1]),int(i[2]),int(i[3])
-                        x1 = max(x1-adjust_x1, 0)
-                        y1 = max(y1-adjust_y1, 0)
-                        x2 = min(x2+adjust_x2, width)
-                        y2 = min(y2+adjust_y2, height)
-                        color = (0, 255, 0)  # Green color (BGR format)
-                        thickness = 2  # Line thickness
-                        cv2.rectangle(frame, (x1,y1), (x2,y2), color, thickness)
-            if time.time() - start > 1:
-                start = time.time()
-                if not args['nocuda']:
-                    progressbar.set_description(f"VRAM: {round(gpu_memory_total - torch.cuda.mem_get_info(device)[0] / 1024**3,2)}/{gpu_memory_total} GB, usage: {torch.cuda.utilization(device=device)}%")
-            if not args['cli']:
-                cv2.imshow('Face Detection', frame)
-            if not args['preview']:
-                out.write(frame)
-            progressbar.update(1)
-            if args['preview']:
-                old_number = frame_index
-                while frame_index == old_number:
-                    time.sleep(0.01)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
-    out.release()
-    cap.release()
-    cv2.destroyAllWindows()
-    if not isinstance(args['target_path'], int):
-        add_audio_from_video(name, args['target_path'], args['output'])
-        os.remove(name)
+        out.release()
+        cap.release()
+        cv2.destroyAllWindows()
+        if args['batch'] != '':
+            try:
+                add_audio_from_video(os.path.join(args['output'], f"{file}{args['batch']}_temp.mp4"),os.path.join(args['output'], file) ,os.path.join(args['output'], f"{file}{args['batch']}"))
+                os.remove(os.path.join(args['output'], f"{file}{args['batch']}_temp.mp4"))
+            except Exception as e:
+                print(f"SOMETHING WENT WRONG DURING THE ADDING OF THE AUDIO TO THE VIDEO!file: {os.path.join(args['output'], file)}, error:{e}")
+        else:
+             if not isinstance(args['target_path'], int):
+                add_audio_from_video(name, args['target_path'], args['output'])
+                os.remove(name)
+        
+        
     print("Processing finished, you may close the window now")
     exit()
+if args['batch'] != '':
+    os.makedirs(args['output'], exist_ok=True)
 if not args['cli']:
     threading.Thread(target=main).start()
     root.mainloop()
