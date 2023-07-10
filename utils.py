@@ -8,7 +8,7 @@ import threading
 import queue
 import time
 from tkinter import messagebox
-import tensorflow as tf
+
 class GFPGAN_onnxruntime:
     def __init__(self, model_path, use_gpu = False):
         sess_options = rt.SessionOptions()
@@ -78,15 +78,19 @@ class GFPGAN_onnxruntime:
         output, inv_soft_mask = self.post_process(output, height, width)
         output = output.astype(np.uint8)
         return output, inv_soft_mask
-def mish_activation(x):
-    return x * tf.keras.activations.tanh(tf.keras.activations.softplus(x))
+def prepare(args):
+    if not args['lowmem']:
+        import tensorflow as tf
+        def mish_activation(x):
+            return x * tf.keras.activations.tanh(tf.keras.activations.softplus(x))
 
-class Mish(tf.keras.layers.Layer):
-    def __init__(self, **kwargs):
-        super(Mish, self).__init__()
+        class Mish(tf.keras.layers.Layer):
+            def __init__(self, **kwargs):
+                super(Mish, self).__init__()
 
-    def call(self, inputs):
-        return mish_activation(inputs)
+            def call(self, inputs):
+                return mish_activation(inputs)
+        tf.keras.utils.get_custom_objects().update({'Mish': Mish})
 def add_audio_from_video(video_path, audio_video_path, output_path):
     ffmpeg_cmd = [
         'ffmpeg',
@@ -99,7 +103,6 @@ def add_audio_from_video(video_path, audio_video_path, output_path):
         output_path
     ]
     subprocess.run(ffmpeg_cmd, check=True)
-tf.keras.utils.get_custom_objects().update({'Mish': Mish})
 def get_nth_frame(cap, number):
     cap.set(cv2.CAP_PROP_POS_FRAMES, number)
     ret, frame = cap.read()
@@ -189,12 +192,19 @@ def prepare_models(args):
     providers = rt.get_available_providers()
     sess_options = rt.SessionOptions()
     sess_options.intra_op_num_threads = 8
+    sess_options2 = rt.SessionOptions()
+    sess_options2.graph_optimization_level = rt.GraphOptimizationLevel.ORT_DISABLE_ALL #Varying with all the options
+    sess_options.graph_optimization_level = rt.GraphOptimizationLevel.ORT_DISABLE_ALL #Varying with all the options
     if not args['no_faceswap']:
         face_swapper = insightface.model_zoo.get_model("inswapper_128.onnx", session_options=sess_options, providers=providers)
     else:
         face_swapper = None
-    face_analyser = insightface.app.FaceAnalysis(name='buffalo_l', providers=providers)
-    face_analyser.prepare(ctx_id=0, det_size=(640, 640))
+    if args['lowmem']:
+        face_analyser = insightface.app.FaceAnalysis(name='buffalo_l', providers=providers, session_options=sess_options2)
+        face_analyser.prepare(ctx_id=0, det_size=(256, 256))
+    else:
+        face_analyser = insightface.app.FaceAnalysis(name='buffalo_l', providers=providers)
+        face_analyser.prepare(ctx_id=0, det_size=(640, 640))
     #face_analyser.models.pop("landmark_3d_68")
     #face_analyser.models.pop("landmark_2d_106")
     #face_analyser.models.pop("genderage")

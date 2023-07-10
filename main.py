@@ -1,14 +1,4 @@
-from types import NoneType
-from threading import Thread
-from tqdm import tqdm
-import numpy as np
-from gfpgan import GFPGANer
-import threading, os, torch, time, cv2, argparse
-from utils import *
-import tensorflow as tf
-from tkinter import filedialog
-from tkinter.filedialog import asksaveasfilename
-from plugins.codeformer_app_cv2 import inference_app as codeformer
+import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('-f', '--face', help='use this face', dest='face', default="face.jpg")
 parser.add_argument('-t', '--target', help='replace this face. If camera, use integer like 0',default="0", dest='target_path')
@@ -23,11 +13,31 @@ parser.add_argument('--no-face-swapper', '--no-swapper', help='disables face swa
 parser.add_argument('--preview-mode', help='experimental: preview mode', dest='preview', action='store_true')
 parser.add_argument('--experimental', help='experimental mode, enables features like buffered video reader', dest='experimental', action='store_true')
 parser.add_argument('--no-cuda', help='no cuda should be used', dest='nocuda', action='store_true')
+parser.add_argument('--low-memory', '--lowmem', help='low memory usage attempt', dest='lowmem', action='store_true')
+
 args = {}
 for name, value in vars(parser.parse_args()).items():
     args[name] = value
 width, height = args['resolution'].split('x')
 width, height = int(width), int(height)
+from types import NoneType
+from threading import Thread
+from tqdm import tqdm
+import numpy as np
+from gfpgan import GFPGANer
+import threading, os, torch, time, cv2
+from tkinter import filedialog
+from tkinter.filedialog import asksaveasfilename
+from plugins.codeformer_app_cv2 import inference_app as codeformer
+from utils import *
+prepare(args)
+
+
+
+if not args['lowmem']:
+    import tensorflow as tf
+    physical_devices = tf.config.list_physical_devices('GPU')
+    tf.config.experimental.set_memory_growth(physical_devices[0], True)
 if args['experimental']:
     try:
         from imutils.video import FileVideoStream
@@ -98,8 +108,6 @@ if args['preview'] and isinstance(args['target_path'], int):
     show_error()
     exit()
 THREAD_SEMAPHORE = threading.Semaphore()
-physical_devices = tf.config.list_physical_devices('GPU')
-tf.config.experimental.set_memory_growth(physical_devices[0], True)
 #tf.config.experimental.set_virtual_device_configuration(
 #        physical_devices[0],
 #        [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=8192)])
@@ -170,9 +178,10 @@ if not args['cli']:
     checkbox_var = tk.IntVar()
     checkbox = ttk.Checkbutton(root, text="Face enhancer", variable=checkbox_var)
     checkbox.pack()
-    enhancer_choice = tk.IntVar()
-    r1 = tk.Radiobutton(root, text='fastface enhancer', variable=enhancer_choice, value = 0)
-    r1.pack()
+    enhancer_choice = tk.IntVar(value=int(args['lowmem']))
+    if not args['lowmem']:
+        r1 = tk.Radiobutton(root, text='fastface enhancer', variable=enhancer_choice, value = 0)
+        r1.pack()
     r2 = tk.Radiobutton(root, text='gfpgan', variable=enhancer_choice, value = 1)
     r2.pack()
     r3 = tk.Radiobutton(root, text='codeformer', variable=enhancer_choice, value = 2)
@@ -274,7 +283,8 @@ def main():
                 if faceswapper_checkbox_var.get() == True:
                     ttest1=True
             if not args['no_faceswap'] and ttest1 == True:
-                frame = face_swapper.get(frame, face, source_face, paste_back=True)   
+                
+                frame = face_swapper.get(frame, face, source_face, paste_back=True)
             try:
                 test1 = checkbox_var.get() == 1 
                 test2 = not enhancer_choice.get() == 2
