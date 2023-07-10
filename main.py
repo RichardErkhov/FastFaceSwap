@@ -26,18 +26,16 @@ from tqdm import tqdm
 import numpy as np
 from gfpgan import GFPGANer
 import threading, os, torch, time, cv2
-from tkinter import filedialog
-from tkinter.filedialog import asksaveasfilename
 from plugins.codeformer_app_cv2 import inference_app as codeformer
 from utils import *
-prepare(args)
-
-
-
 if not args['lowmem']:
     import tensorflow as tf
     physical_devices = tf.config.list_physical_devices('GPU')
     tf.config.experimental.set_memory_growth(physical_devices[0], True)
+    #tf.config.experimental.set_virtual_device_configuration(
+    #        physical_devices[0],
+    #        [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=8192)])
+    prepare()
 if args['experimental']:
     try:
         from imutils.video import FileVideoStream
@@ -68,10 +66,8 @@ def select_output():
 if not args['cli']:
     import tkinter as tk
     from tkinter import ttk
-    def eee():
-        print("run")
-        while True:
-            time.sleep(1)
+    from tkinter import filedialog
+    from tkinter.filedialog import asksaveasfilename
     def finish(menu):
         global thread_amount_temp
         thread_amount_temp = thread_amount_input.get()
@@ -108,16 +104,18 @@ if args['preview'] and isinstance(args['target_path'], int):
     show_error()
     exit()
 THREAD_SEMAPHORE = threading.Semaphore()
-#tf.config.experimental.set_virtual_device_configuration(
-#        physical_devices[0],
-#        [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=8192)])
-
-
 arch = 'clean'
 channel_multiplier = 2
 model_path = 'GFPGANv1.4.pth'
 restorer = None
 generator = None
+device = torch.device(0)
+if not args['nocuda']:
+    gpu_memory_total = round(torch.cuda.get_device_properties(device).total_memory / 1024**3,2)  # Convert bytes to GB
+adjust_x1 = 50
+adjust_y1 = 50
+adjust_x2 = 50
+adjust_y2 = 50
 def load_restorer():
     global restorer
     if isinstance(restorer, NoneType):
@@ -135,14 +133,6 @@ def load_generator():
     if isinstance(generator, NoneType):
         generator = tf.keras.models.load_model('256_v2_big_generator_pretrain_stage1_38499.h5')#, custom_objects={'Mish': Mish})
     return generator
-
-device = torch.device(0)
-if not args['nocuda']:
-    gpu_memory_total = round(torch.cuda.get_device_properties(device).total_memory / 1024**3,2)  # Convert bytes to GB
-adjust_x1 = 50
-adjust_y1 = 50
-adjust_x2 = 50
-adjust_y2 = 50
 def set_adjust_value():
     global adjust_x1, adjust_y1, adjust_x2, adjust_y2
     try:
@@ -188,9 +178,6 @@ if not args['cli']:
     r3.pack()
     r4 = tk.Radiobutton(root, text='gfpgan onnx', variable=enhancer_choice, value = 3)
     r4.pack()
-
-
-
     show_bbox_var = tk.IntVar()
     show_bbox = ttk.Checkbutton(root, text="draw bounding box around faces", variable=show_bbox_var)
     show_bbox.pack()
@@ -206,7 +193,6 @@ if not args['cli']:
 
     label = tk.Label(root, text="right")
     label.pack()
-
 
     entry_x2 = tk.Entry(root)
     entry_x2.pack() 
@@ -239,7 +225,6 @@ if not args['cli']:
         def on_slider_move(value):
             global frame_index
             frame_index = int(value)
-            #print("Slider value:", value)
         def edit_index(amount):
             global frame_index
             frame_index += amount
@@ -266,13 +251,8 @@ def load_gfpganonnx():
 def main():
     global args, width, height, frame_index
     face_swapper, face_analyser = prepare_models(args)
-    #try:
     input_face = cv2.imread(args['face'])
     source_face = sorted(face_analyser.get(input_face), key=lambda x: x.bbox[0])[0]
-    #except:
-    #    print("You forgot to add the input face")
-    #    exit()
-    #load_gfpganonnx()
     def face_analyser_thread(frame):
         faces = face_analyser.get(frame)
         bboxes = []
@@ -283,7 +263,6 @@ def main():
                 if faceswapper_checkbox_var.get() == True:
                     ttest1=True
             if not args['no_faceswap'] and ttest1 == True:
-                
                 frame = face_swapper.get(frame, face, source_face, paste_back=True)
             try:
                 test1 = checkbox_var.get() == 1 
@@ -292,45 +271,44 @@ def main():
                 test1 = False
                 test2 = False
             if (test1 and test2) or (args['face_enhancer'] != 'none' and args['cli']):
-                #try:
-
-                i = face.bbox
-                x1, y1, x2, y2 = int(i[0]),int(i[1]),int(i[2]),int(i[3])
-                x1 = max(x1-adjust_x1, 0)
-                y1 = max(y1-adjust_y1, 0)
-                x2 = min(x2+adjust_x2, width)
-                y2 = min(y2+adjust_y2, height)
-                facer = frame[y1:y2, x1:x2]
-                if not args['cli']:
-                    if enhancer_choice.get() == 0:
-                        facex = upscale_image(facer, load_generator())
-                    elif enhancer_choice.get() == 1:
-                        with THREAD_SEMAPHORE:
-                            cropped_faces, restored_faces, facex = load_restorer().enhance(
-                                facer,
-                                has_aligned=False,
-                                only_center_face=False,
-                                paste_back=True
-                            )
-                    elif enhancer_choice.get() == 3:
-                        facex, _ = load_gfpganonnx().forward(facer)
-                else:
-                    if args['face_enhancer'] == 'gfpgan':
-                        with THREAD_SEMAPHORE:
-                            cropped_faces, restored_faces, facex = load_restorer().enhance(
-                                facer,
-                                has_aligned=False,
-                                only_center_face=False,
-                                paste_back=True
-                            )
-                    elif args['face_enhancer'] == 'ffe':
-                        facex = upscale_image(facer, load_generator())
-                    elif args['face_enhancer'] == "gpfgan_onnx":
-                        facex, _ = load_gfpganonnx().forward(facer)
-                facex = cv2.resize(facex, ((x2-x1), (y2-y1)))
-                frame[y1:y2, x1:x2] = facex
-                #except Exception as e:
-                #    print(e)
+                try:
+                    i = face.bbox
+                    x1, y1, x2, y2 = int(i[0]),int(i[1]),int(i[2]),int(i[3])
+                    x1 = max(x1-adjust_x1, 0)
+                    y1 = max(y1-adjust_y1, 0)
+                    x2 = min(x2+adjust_x2, width)
+                    y2 = min(y2+adjust_y2, height)
+                    facer = frame[y1:y2, x1:x2]
+                    if not args['cli']:
+                        if enhancer_choice.get() == 0:
+                            facex = upscale_image(facer, load_generator())
+                        elif enhancer_choice.get() == 1:
+                            with THREAD_SEMAPHORE:
+                                cropped_faces, restored_faces, facex = load_restorer().enhance(
+                                    facer,
+                                    has_aligned=False,
+                                    only_center_face=False,
+                                    paste_back=True
+                                )
+                        elif enhancer_choice.get() == 3:
+                            facex, _ = load_gfpganonnx().forward(facer)
+                    else:
+                        if args['face_enhancer'] == 'gfpgan':
+                            with THREAD_SEMAPHORE:
+                                cropped_faces, restored_faces, facex = load_restorer().enhance(
+                                    facer,
+                                    has_aligned=False,
+                                    only_center_face=False,
+                                    paste_back=True
+                                )
+                        elif args['face_enhancer'] == 'ffe':
+                            facex = upscale_image(facer, load_generator())
+                        elif args['face_enhancer'] == "gpfgan_onnx":
+                            facex, _ = load_gfpganonnx().forward(facer)
+                    facex = cv2.resize(facex, ((x2-x1), (y2-y1)))
+                    frame[y1:y2, x1:x2] = facex
+                except Exception as e:
+                    print(e)
         if not args['cli']:
             if enhancer_choice.get() == 2:
                 #frame, background enhance bool true, face upscample bool true, upscale int 2,
@@ -338,8 +316,6 @@ def main():
                 frame = codeformer(frame, False, True, 1, codeformer_fidelity, False)
         else:
             if args['face_enhancer'] == 'codeformer':
-                #frame, background enhance bool true, face upscample bool true, upscale int 2,
-                # codeformer fidelity float 0.8, skip_if_no_face bool false 
                 frame = codeformer(frame, True, True, 1, 0.8, False)
         return bboxes, frame
     if args['image'] == True :
@@ -404,14 +380,12 @@ def main():
                     frame = cap.read()
                     if isinstance(frame, NoneType):
                         break
-                    
                 else:
                     ret, frame = cap.read()
                     if not ret:
                         break
                 temp.append(ThreadWithReturnValue(target=face_analyser_thread, args=(frame,)))
                 temp[-1].start()
-        #while cap.isOpened():
         while True:
             try:
                 if not args['preview']:
@@ -488,7 +462,6 @@ def main():
         os.remove(name)
     print("Processing finished, you may close the window now")
     exit()
-
 if not args['cli']:
     threading.Thread(target=main).start()
     root.mainloop()
