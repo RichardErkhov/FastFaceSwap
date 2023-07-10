@@ -47,6 +47,9 @@ flags implemented:
 
 --lowmem, --low-memory: attempt to make code available for people with low VRAM, might result in lower quality
 
+--batch: enables batch mode, after it provide a suffix, for example --batch="_test.mp4" will result in output %target%_test.mp4
+
+
 example:
 ``` python main.py -f test.jpg -t "C:/Users/user/Desktop/video.mp4" -o output/test.mp4 --threads 12 ```
 
