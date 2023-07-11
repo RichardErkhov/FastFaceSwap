@@ -8,6 +8,32 @@ import threading
 import queue
 import time
 from tkinter import messagebox
+from PIL import Image
+from numpy import asarray
+import os
+def extract_frames_from_video(target_video, output_folder):
+    target_video_name =  os.path.basename(target_video)
+    ffmpeg_cmd = [
+        'ffmpeg',
+        '-i', target_video,
+        f'{output_folder}/{target_video_name}/frame_%05d.png'
+    ]
+    subprocess.run(ffmpeg_cmd, check=True)
+def add_audio_from_video(video_path, audio_video_path, output_path):
+    ffmpeg_cmd = [
+        'ffmpeg',
+        '-i', video_path,
+        '-i', audio_video_path,
+        '-c:v', 'copy',
+        '-map', '0:v:0',
+        '-map', '1:a:0',
+        '-shortest',
+        output_path
+    ]
+    subprocess.run(ffmpeg_cmd, check=True)
+def merge_face(temp_frame, original, alpha):
+    temp_frame = Image.blend(Image.fromarray(original), Image.fromarray(temp_frame), alpha)
+    return asarray(temp_frame)
 class GFPGAN_onnxruntime:
     def __init__(self, model_path, use_gpu = False):
         sess_options = rt.SessionOptions()
@@ -216,3 +242,4 @@ def show_error():
     messagebox.showerror("Error", "Preview mode does not work with camera, so please use normal mode")
 def show_warning():
     messagebox.showwarning("Warning", "Camera is not properly working with experimental mode, sorry")
+    

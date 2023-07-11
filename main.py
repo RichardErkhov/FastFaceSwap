@@ -5,7 +5,7 @@ parser.add_argument('-t', '--target', help='replace this face. If camera, use in
 parser.add_argument('-o', '--output', help='path to output of the video',default="video.mp4", dest='output')
 parser.add_argument('-cam-fix', '--camera-fix', help='fix for logitech cameras that start for 40 seconds in default mode.', dest='camera_fix', action='store_true')
 parser.add_argument('-res', '--resolution', help='camera resolution, given in format WxH (ex 1920x1080). Is set for camera mode only',default="1920x1080", dest='resolution')
-parser.add_argument('--threads', help='amount of gpu threads',default="2", dest='threads')
+parser.add_argument('--threads', help='amount of gpu threads',default="4", dest='threads')
 parser.add_argument('--image', help='Include if the target is image', dest='image', action='store_true')
 parser.add_argument('--cli', help='run in cli mode, turns off preview and now accepts switch of face enhancer from the command', dest='cli', action='store_true')
 parser.add_argument('--face-enhancer', help='face enhancer, choice works only in cli mode. In gui mode, you need to choose from gui', dest='face_enhancer', default='none', choices=['none','gfpgan', 'ffe', 'codeformer', 'gpfgan_onnx'])
@@ -14,7 +14,16 @@ parser.add_argument('--preview-mode', help='experimental: preview mode', dest='p
 parser.add_argument('--experimental', help='experimental mode, enables features like buffered video reader', dest='experimental', action='store_true')
 parser.add_argument('--no-cuda', help='no cuda should be used', dest='nocuda', action='store_true')
 parser.add_argument('--low-memory', '--lowmem', help='low memory usage attempt', dest='lowmem', action='store_true')
-parser.add_argument('--batch', help='bathc processing mode, after the argument write which suffix should the output files have', dest='batch', default='')
+parser.add_argument('--batch', help='batch processing mode, after the argument write which suffix should the output files have', dest='batch', default='')
+#parser.add_argument('--extract-target-frames', help='extract frames from target video. After argument write the path to folder', dest='extract_target', default="")
+parser.add_argument('--extract-output-frames', help='extract frames from output video. After argument write the path to folder', dest='extract_output', default="")
+parser.add_argument('--codeformer-fidelity', help='sets up codeformer\'s fidelity if used with cli mode',default=0.1, dest='codeformer_fidelity')
+parser.add_argument('--blend', help='works with cli, blending amount from 0.0 to 1.0', default=1.0, dest='alpha')
+parser.add_argument('--codeformer-skip_if_no_face', help='works only in cli. Skip codeformer if no face found', dest='codeformer_skip_if_no_face', action='store_true')
+parser.add_argument('--codeformer-face-upscale', help='works only in cli. Upscale the face using codeformer', dest='codeformer_face_upscale', action='store_true')
+parser.add_argument('--codeformer-background-enhance', help='works only in cli. Enhance the background using codeformer', dest='codeformer_background_enhance', action='store_true')
+parser.add_argument('--codeformer-upscale', help='works with cli, the amount of upscale to apply to the frame using codeformer', default=1, dest='codeformer_upscale')
+
 args = {}
 for name, value in vars(parser.parse_args()).items():
     args[name] = value
@@ -22,6 +31,15 @@ width, height = args['resolution'].split('x')
 width, height = int(width), int(height)
 if args['batch'] != "" and not args['batch'].endswith(".mp4"):
     args['batch'] += '.mp4'
+#if args['extract_target'] != '':
+#    os.makedirs(args['extract_target'])
+if args['extract_output'] != '':
+    os.makedirs(args['extract_output'])
+
+#if args['cli']:
+    #testx = input("Are you sure you want to extract frames from videos? It will be done in the background (yes for yes and anything else for no):")
+    #if testx == 'yes':
+        #if args['batch'] == ''
 import os
 #just a fix, sometimes speeds up things
 os.environ['OMP_NUM_THREADS'] = '1'
@@ -120,6 +138,9 @@ if (args['target_path'].isdigit()):
 if args['preview'] and isinstance(args['target_path'], int):
     show_error()
     exit()
+if args['preview'] and args['cli']:
+    print("Preview mode does not work with cli, so please use GUI")
+    exit()
 THREAD_SEMAPHORE = threading.Semaphore()
 arch = 'clean'
 channel_multiplier = 2
@@ -148,7 +169,7 @@ def load_restorer():
 def load_generator():
     global generator
     if isinstance(generator, NoneType):
-        generator = tf.keras.models.load_model('256_v2_big_generator_pretrain_stage1_38499.h5')#, custom_objects={'Mish': Mish})
+        generator = tf.keras.models.load_model('complex_test_256_v3_big_generator_pretrain_stage0_40999.h5')#, custom_objects={'Mish': Mish})
     return generator
 def set_adjust_value():
     global adjust_x1, adjust_y1, adjust_x2, adjust_y2
@@ -176,25 +197,25 @@ def count_frames(video_path):
 if not args['cli']:
     root = tk.Tk()
     if not args['preview']:
-        root.geometry("200x450")
+        root.geometry("200x550")
     else:
-        root.geometry("250x570")
+        root.geometry("250x680")
     faceswapper_checkbox_var = tk.IntVar(value=1)
     faceswapper_checkbox = ttk.Checkbutton(root, text="Face swapper", variable=faceswapper_checkbox_var)
     faceswapper_checkbox.pack()
     checkbox_var = tk.IntVar()
     checkbox = ttk.Checkbutton(root, text="Face enhancer", variable=checkbox_var)
     checkbox.pack()
-    enhancer_choice = tk.IntVar(value=int(args['lowmem']))
+    enhancer_choice = tk.StringVar(value='fastface enhancer')
+    choices = ['fastface enhancer', 'gfpgan', 'codeformer', 'gfpgan onnx']
+
     if not args['lowmem']:
-        r1 = tk.Radiobutton(root, text='fastface enhancer', variable=enhancer_choice, value = 0)
-        r1.pack()
-    r2 = tk.Radiobutton(root, text='gfpgan', variable=enhancer_choice, value = 1)
-    r2.pack()
-    r3 = tk.Radiobutton(root, text='codeformer', variable=enhancer_choice, value = 2)
-    r3.pack()
-    r4 = tk.Radiobutton(root, text='gfpgan onnx', variable=enhancer_choice, value = 3)
-    r4.pack()
+        choices.remove('fastface enhancer')
+
+    dropdown = ttk.OptionMenu(root, enhancer_choice, enhancer_choice.get(), *choices)
+    dropdown.pack()
+
+
     show_bbox_var = tk.IntVar()
     show_bbox = ttk.Checkbutton(root, text="draw bounding box around faces", variable=show_bbox_var)
     show_bbox.pack()
@@ -232,11 +253,38 @@ if not args['cli']:
     codeformer_fidelity = 0.1
     def on_codeformer_slider_move(value):
         global codeformer_fidelity
-        codeformer_fidelity = value
+        codeformer_fidelity = float(value)
     label = tk.Label(root, text="Codeformer fidelity")
     label.pack()
-    codeformer_slider = tk.Scale(root, from_=0.1, to=2.0, resolution=0.1,  orient=tk.HORIZONTAL)
+    codeformer_slider = tk.Scale(root, from_=0.1, to=2.0, resolution=0.1,  orient=tk.HORIZONTAL, command=on_codeformer_slider_move)
     codeformer_slider.pack()
+    alpha = 0.0
+    def alpha_slider_move(value):
+        global alpha
+        alpha = float(value)
+    label = tk.Label(root, text="blender")
+    label.pack()
+    alpha_slider = tk.Scale(root, from_=0.0, to=1.0, resolution=0.1,  orient=tk.HORIZONTAL, command=alpha_slider_move)
+    alpha_slider.pack()
+    alpha_slider.set(1.0)
+    
+    codeformer_skip_if_no_face_var = tk.IntVar()
+    codeformer_skip_if_no_face = ttk.Checkbutton(root, text="Skip codeformer if not face is found", variable=codeformer_skip_if_no_face_var)
+    codeformer_skip_if_no_face.pack()
+    codeformer_upscale_face_var = tk.IntVar()
+    codeformer_upscale_face = ttk.Checkbutton(root, text="Upscale face using codeformer", variable=codeformer_upscale_face_var)
+    codeformer_upscale_face.pack()
+    codeformer_upscale_face_var.set(1)
+    codeformer_enhance_background_var = tk.IntVar()
+    codeformer_enhance_background = ttk.Checkbutton(root, text="Enhance background using codeformer", variable=codeformer_enhance_background_var)
+    codeformer_enhance_background.pack()
+    codeformer_upscale_amount_value = 1
+    def codeformer_upscale_amount_move(value):
+        global codeformer_upscale_amount_value
+        codeformer_upscale_amount_value = int(value)
+    codeformer_upscale_amount = tk.Scale(root, from_=1, to=3, resolution=1,  orient=tk.HORIZONTAL, command=codeformer_upscale_amount_move)
+    codeformer_upscale_amount.pack()
+    codeformer_upscale_amount.set(1)
     if args['preview']:
         frame_index = 0
         def on_slider_move(value):
@@ -258,6 +306,17 @@ if not args['cli']:
         frame_back_button.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         frame_forward_button = tk.Button(root, text='>', width=button_width, command=lambda: edit_index(1))
         frame_forward_button.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+    #progress_var = tk.StringVar(root)
+    #progress_label = tk.Label(root)#, textvariable=progress_var)
+    #progress_label.pack()
+    def update_progress_bar(length, progress, total):
+        filled_length = int(length * progress // total)
+        bar = '█' * filled_length + '-' * (length - filled_length)
+        percent = round(100.0 * progress / total, 1)
+        progress_text = f'Progress: |{bar}| {percent}%'
+        progress_label['text'] = progress_text
+        #progress_var.set(text=progress_text)
+        root.update()
 gfpgan_onnx_model = None
 def load_gfpganonnx():
     global gfpgan_onnx_model
@@ -275,12 +334,87 @@ def restorer_enhance(facer):
         )
     return facex
 
-def main():
-    global args, width, height, frame_index
-    face_swapper, face_analyser = prepare_models(args)
-    input_face = cv2.imread(args['face'])
-    source_face = sorted(face_analyser.get(input_face), key=lambda x: x.bbox[0])[0]
-    def face_analyser_thread(frame):
+def create_cap():
+    global width, height
+    if not args['experimental']:
+        if args['camera_fix'] == True:
+            cap = cv2.VideoCapture(args['target_path'], cv2.CAP_DSHOW)
+        else:
+            cap = cv2.VideoCapture(args['target_path'])
+        if isinstance(args['target_path'], int):
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+        fourcc = cv2.VideoWriter_fourcc(*'H265')
+        cap.set(cv2.CAP_PROP_FOURCC, fourcc)
+        # Get the video's properties
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    else:
+        '''cap = VideoCaptureThread(args['target_path'], 30)
+        if isinstance(args['target_path'], int):
+            show_warning()
+        fps = cap.fps
+        width = int(cap.width)
+        height = int(cap.height)'''
+        cap = cv2.VideoCapture(args['target_path'])
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        cap.release()
+        del cap
+        cap = FileVideoStream(args['target_path']).start()
+        time.sleep(1.0)
+    # Create a VideoWriter object to save the processed video
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    name = args['output']
+    if isinstance(args['target_path'], str):
+        name = f"{args['output']}_temp.mp4"
+    out = cv2.VideoWriter(name, fourcc, fps, (width, height))
+    frame_number = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    return [cap, fps, width, height, out, name, args['target_path'], frame_number]
+
+def create_batch_cap(file):
+    if not args['experimental']:
+        if args['camera_fix'] == True:
+            print("no need for camera_fix, there's not camera available in batch processing")
+        cap = cv2.VideoCapture(os.path.join(args['target_path'], file))
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        fourcc = cv2.VideoWriter_fourcc(*'H265')
+        cap.set(cv2.CAP_PROP_FOURCC, fourcc)
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    else:
+        '''cap = VideoCaptureThread(args['target_path'], 30)
+        if isinstance(args['target_path'], int):
+            show_warning()
+        fps = cap.fps
+        width = int(cap.width)
+        height = int(cap.height)'''
+        cap = cv2.VideoCapture(os.path.join(args['target_path'], file))
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        cap.release()
+        del cap
+        # yes, might overflow is too many files, well, it's experimental lol, what do you expect?
+        cap = FileVideoStream(os.path.join(args['target_path'], file)).start() 
+        time.sleep(1.0)
+
+    # Create a VideoWriter object to save the processed video
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    name = os.path.join(args['output'], f"{file}{args['batch']}_temp.mp4")#f"{args['output']}_temp{args['batch']}.mp4"
+    out = cv2.VideoWriter(name, fourcc, fps, (width, height))
+    frame_number = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    return [cap, fps, width, height, out, name, file, frame_number]
+def face_analyser_thread(frame):
+    global alpha
+    if not args['cli']:
+        test1 = alpha != 0
+    else:
+        test1 = args['alpha'] != 0
+    if test1:
+        original_frame = frame
         faces = face_analyser.get(frame)
         bboxes = []
         for face in faces:
@@ -293,11 +427,11 @@ def main():
                 frame = face_swapper.get(frame, face, source_face, paste_back=True)
             try:
                 test1 = checkbox_var.get() == 1 
-                test2 = not enhancer_choice.get() == 2
+                test2 = not enhancer_choice.get() == "codeformer"
             except:
                 test1 = False
                 test2 = False
-            if (test1 and test2) or (args['face_enhancer'] != 'none' and args['cli']):
+            if (test1 and test2) or (args['face_enhancer'] != 'none' and args['cli'] and args['face_enhancer'] != 'codeformer'):
                 try:
                     i = face.bbox
                     x1, y1, x2, y2 = int(i[0]),int(i[1]),int(i[2]),int(i[3])
@@ -307,11 +441,11 @@ def main():
                     y2 = min(y2+adjust_y2, height)
                     facer = frame[y1:y2, x1:x2]
                     if not args['cli']:
-                        if enhancer_choice.get() == 0:
+                        if enhancer_choice.get() == "fastface enhancer":
                             facex = upscale_image(facer, load_generator())
-                        elif enhancer_choice.get() == 1:
+                        elif enhancer_choice.get() == "gfpgan":
                             facex = restorer_enhance(facer)
-                        elif enhancer_choice.get() == 3:
+                        elif enhancer_choice.get() == "gfpgan onnx":
                             facex, _ = load_gfpganonnx().forward(facer)
                     else:
                         if args['face_enhancer'] == 'gfpgan':
@@ -325,14 +459,33 @@ def main():
                 except Exception as e:
                     print(e)
         if not args['cli']:
-            if enhancer_choice.get() == 2:
+            if enhancer_choice.get() == "codeformer" and checkbox_var.get() == 1 : 
                 #frame, background enhance bool true, face upscample bool true, upscale int 2,
                 # codeformer fidelity float 0.8, skip_if_no_face bool false 
-                frame = codeformer(frame, False, True, 1, codeformer_fidelity, False)
+                frame = codeformer(frame, codeformer_enhance_background_var.get(), codeformer_upscale_face_var.get(), codeformer_upscale_amount_value, codeformer_fidelity, codeformer_skip_if_no_face_var.get())
         else:
             if args['face_enhancer'] == 'codeformer':
-                frame = codeformer(frame, True, True, 1, 0.8, False)
+                frame = codeformer(frame, args['codeformer_background_enhance'], args['codeformer_face_upscale'], args['codeformer_upscale'], float(args['codeformer_fidelity']), args['codeformer_skip_if_no_face'])
+        if not args['cli']:
+            test1 = alpha != 1
+        else:
+            test1 = args['alpha'] != 1
+        if test1:
+            frame = merge_face(frame, original_frame, alpha)
         return bboxes, frame
+    return [], frame
+
+
+def is_video_file(filename):
+    video_extensions = ['.mp4', '.avi', '.mkv', '.mov', '.webm']  # Add more extensions as needed
+    _, ext = os.path.splitext(filename)
+    return ext.lower() in video_extensions
+def main():
+    global args, width, height, frame_index, face_analyser, face_swapper, source_face, progress_var
+    face_swapper, face_analyser = prepare_models(args)
+    input_face = cv2.imread(args['face'])
+    source_face = sorted(face_analyser.get(input_face), key=lambda x: x.bbox[0])[0]
+    
     if args['image'] == True :
         image = cv2.imread(args['target_path'])
         bbox, image = face_analyser_thread(image)
@@ -347,78 +500,16 @@ def main():
         return 
     caps = []
     if args['batch'] == '':
-        if not args['experimental']:
-            if args['camera_fix'] == True:
-                cap = cv2.VideoCapture(args['target_path'], cv2.CAP_DSHOW)
-            else:
-                cap = cv2.VideoCapture(args['target_path'])
-            if isinstance(args['target_path'], int):
-                cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-                cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
-            fourcc = cv2.VideoWriter_fourcc(*'H265')
-            cap.set(cv2.CAP_PROP_FOURCC, fourcc)
-            # Get the video's properties
-            fps = cap.get(cv2.CAP_PROP_FPS)
-            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        else:
-            '''cap = VideoCaptureThread(args['target_path'], 30)
-            if isinstance(args['target_path'], int):
-                show_warning()
-            fps = cap.fps
-            width = int(cap.width)
-            height = int(cap.height)'''
-            cap = cv2.VideoCapture(args['target_path'])
-            fps = cap.get(cv2.CAP_PROP_FPS)
-            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            cap.release()
-            del cap
-            cap = FileVideoStream(args['target_path']).start()
-            time.sleep(1.0)
-        # Create a VideoWriter object to save the processed video
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        name = args['output']
-        if isinstance(args['target_path'], str):
-            name = f"{args['output']}_temp.mp4"
-        out = cv2.VideoWriter(name, fourcc, fps, (width, height))
-        caps.append([cap, fps, width, height, out, name, args['target_path']])
-    if args['batch'] != '':
-        files = os.listdir(args['target_path'])
-        for file in files:
-            if not args['experimental']:
-                if args['camera_fix'] == True:
-                    print("no need for camera_fix, there's not camera available in batch processing")
-                cap = cv2.VideoCapture(os.path.join(args['target_path'], file))
-                fps = cap.get(cv2.CAP_PROP_FPS)
-                fourcc = cv2.VideoWriter_fourcc(*'H265')
-                cap.set(cv2.CAP_PROP_FOURCC, fourcc)
-                width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-                height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            else:
-                '''cap = VideoCaptureThread(args['target_path'], 30)
-                if isinstance(args['target_path'], int):
-                    show_warning()
-                fps = cap.fps
-                width = int(cap.width)
-                height = int(cap.height)'''
-                cap = cv2.VideoCapture(os.path.join(args['target_path'], file))
-                fps = cap.get(cv2.CAP_PROP_FPS)
-                width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-                height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                cap.release()
-                del cap
-                # yes, might overflow is too many files, well, it's experimental lol, what do you expect?
-                cap = FileVideoStream(os.path.join(args['target_path'], file)).start() 
-                time.sleep(1.0)
-
-            # Create a VideoWriter object to save the processed video
-            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-            name = os.path.join(args['output'], f"{file}{args['batch']}_temp.mp4")#f"{args['output']}_temp{args['batch']}.mp4"
-            out = cv2.VideoWriter(name, fourcc, fps, (width, height))
-            caps.append([cap, fps, width, height, out, name, file])
-    for cap, fps, width, height, out, name, file in caps:
-        with tqdm() as progressbar:
+        caps.append(create_cap())
+    else:
+        for file in os.listdir(args['target_path']):
+            if is_video_file(file):
+                caps.append(create_batch_cap(file))
+    for cap, fps, width, height, out, name, file, frame_number in caps:
+        #root.after(1, update_progress_length, frame_number)
+        #update_progress_bar( 10, 0, frame_number)
+        count = 0
+        with tqdm(total=frame_number) as progressbar:
             temp = []
             bbox = []
             start = time.time()
@@ -468,7 +559,10 @@ def main():
                             progressbar.set_description(f"VRAM: {round(gpu_memory_total - torch.cuda.mem_get_info(device)[0] / 1024**3,2)}/{gpu_memory_total} GB, usage: {torch.cuda.utilization(device=device)}%")
                     if not args['cli']:
                         cv2.imshow('Face Detection', frame)
-                    out.write(frame)
+                    if not args['preview']:
+                        out.write(frame)
+                    if args['extract_output'] != '':
+                        cv2.imwrite(os.path.join(args['extract_output'], os.path.basename(file), f"frame_{count:05d}.png"), frame)
                     progressbar.update(1)
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         break
@@ -491,11 +585,15 @@ def main():
                     start = time.time()
                     if not args['nocuda']:
                         progressbar.set_description(f"VRAM: {round(gpu_memory_total - torch.cuda.mem_get_info(device)[0] / 1024**3,2)}/{gpu_memory_total} GB, usage: {torch.cuda.utilization(device=device)}%")
-                if not args['cli']:
-                    cv2.imshow('Face Detection', frame)
+                
                 if not args['preview']:
                     out.write(frame)
+                if args['extract_output'] != '':
+                    cv2.imwrite(os.path.join(args['extract_output'], os.path.basename(file), f"frame_{count:05d}.png"), frame)
                 progressbar.update(1)
+                if not args['cli']:
+                    cv2.imshow('Face Detection', frame)
+                    #update_progress_bar(10, count, frame_number)
                 if args['preview']:
                     old_number = frame_index
                     while frame_index == old_number:
