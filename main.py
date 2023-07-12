@@ -1,5 +1,6 @@
 import argparse
 import os
+import psutil
 parser = argparse.ArgumentParser()
 parser.add_argument('-f', '--face', help='use this face', dest='face', default="face.jpg")
 parser.add_argument('-t', '--target', help='replace this face. If camera, use integer like 0',default="0", dest='target_path')
@@ -197,12 +198,23 @@ def count_frames(video_path):
     video.release()
     return total_frames
 
+def get_system_usage():
+    # Get RAM usage in GB
+    ram_usage = round(psutil.virtual_memory().used / 1024**3, 1)
+
+    # Get total RAM in GB
+    total_ram = round(psutil.virtual_memory().total / 1024**3, 1)
+
+    # Get CPU usage in percentage
+    cpu_usage = round(psutil.cpu_percent(), 0)
+    return ram_usage, total_ram, cpu_usage
+
 if not args['cli']:
     root = tk.Tk()
     if not args['preview']:
-        root.geometry("200x550")
+        root.geometry("250x600")
     else:
-        root.geometry("250x680")
+        root.geometry("250x730")
     faceswapper_checkbox_var = tk.IntVar(value=1)
     faceswapper_checkbox = ttk.Checkbutton(root, text="Face swapper", variable=faceswapper_checkbox_var)
     faceswapper_checkbox.pack()
@@ -288,6 +300,15 @@ if not args['cli']:
     codeformer_upscale_amount = tk.Scale(root, from_=1, to=3, resolution=1,  orient=tk.HORIZONTAL, command=codeformer_upscale_amount_move)
     codeformer_upscale_amount.pack()
     codeformer_upscale_amount.set(1)
+    
+    if not args['preview'] and not isinstance(args['target_path'], int):
+        progress_label = tk.Label(root)
+        progress_label.pack()
+    usage_label1 = tk.Label(root)
+    usage_label1.pack()
+    if not args['nocuda']:
+        usage_label2 = tk.Label(root)
+        usage_label2.pack()
     if args['preview']:
         frame_index = 0
         def on_slider_move(value):
@@ -309,15 +330,20 @@ if not args['cli']:
         frame_back_button.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         frame_forward_button = tk.Button(root, text='>', width=button_width, command=lambda: edit_index(1))
         frame_forward_button.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-    #progress_var = tk.StringVar(root)
-    #progress_label = tk.Label(root)#, textvariable=progress_var)
-    #progress_label.pack()
-    def update_progress_bar(length, progress, total):
-        filled_length = int(length * progress // total)
-        bar = '█' * filled_length + '-' * (length - filled_length)
-        percent = round(100.0 * progress / total, 1)
-        progress_text = f'Progress: |{bar}| {percent}%'
-        progress_label['text'] = progress_text
+    def update_progress_bar(length, progress, total, gpu_usage, vram_usage, total_vram):
+        if not args['preview'] and not isinstance(args['target_path'], int):
+            filled_length = int(length * progress // total)
+            bar = '█' * filled_length + '—' * (length - filled_length)
+            percent = round(100.0 * progress / total, 1)
+            progress_text = f'Progress: |{bar}| {percent}% {progress}/{total}'
+            progress_label['text'] = progress_text
+        if not args['nocuda']:
+            usage_label1['text'] = f"gpu usage: {gpu_usage}%|VRAM usage: {vram_usage}/{total_vram}GB"
+            ram_usage, total_ram, cpu_usage = get_system_usage()
+            usage_label2['text'] = f"cpu usage: {cpu_usage}%|RAM usage: {ram_usage}/{total_ram}GB"
+        else:
+            ram_usage, total_ram, cpu_usage = get_system_usage()
+            usage_label1['text'] = f"cpu usage: {cpu_usage}%|RAM usage: {ram_usage}/{total_ram}GB"
         #progress_var.set(text=progress_text)
         root.update()
 gfpgan_onnx_model = None
@@ -497,7 +523,7 @@ def get_embedding(face_image):
         return None
     
 def main():
-    global args, width, height, frame_index, face_analyser, face_swapper, source_face, progress_var, target_embedding
+    global args, width, height, frame_index, face_analyser, face_swapper, source_face, progress_var, target_embedding, count, frame_number, listik
     face_swapper, face_analyser = prepare_models(args)
     input_face = cv2.imread(args['face'])
     source_face = sorted(face_analyser.get(input_face), key=lambda x: x.bbox[0])[0]
@@ -576,8 +602,14 @@ def main():
                     if time.time() - start > 1:
                         start = time.time()
                         if not args['nocuda']:
-                            progressbar.set_description(f"VRAM: {round(gpu_memory_total - torch.cuda.mem_get_info(device)[0] / 1024**3,2)}/{gpu_memory_total} GB, usage: {torch.cuda.utilization(device=device)}%")
+                            vram_usage, gpu_usage = round(gpu_memory_total - torch.cuda.mem_get_info(device)[0] / 1024**3,2), torch.cuda.utilization(device=device)
+                            progressbar.set_description(f"VRAM: {vram_usage}/{gpu_memory_total} GB, usage: {gpu_usage}%")
                     if not args['cli']:
+                        count += 1
+                        if not args['nocuda']:
+                            listik = [count, frame_number,gpu_usage, vram_usage,gpu_memory_total]
+                        else:
+                            listik = [count, frame_number, 0, 0, 0]
                         cv2.imshow('Face Detection', frame)
                     if not args['preview']:
                         out.write(frame)
@@ -604,7 +636,8 @@ def main():
                 if time.time() - start > 1:
                     start = time.time()
                     if not args['nocuda']:
-                        progressbar.set_description(f"VRAM: {round(gpu_memory_total - torch.cuda.mem_get_info(device)[0] / 1024**3,2)}/{gpu_memory_total} GB, usage: {torch.cuda.utilization(device=device)}%")
+                        vram_usage, gpu_usage = round(gpu_memory_total - torch.cuda.mem_get_info(device)[0] / 1024**3,2), torch.cuda.utilization(device=device)
+                        progressbar.set_description(f"VRAM: {vram_usage}/{gpu_memory_total} GB, usage: {gpu_usage}%")
                 
                 if not args['preview']:
                     out.write(frame)
@@ -640,7 +673,12 @@ def main():
 if args['batch'] != '':
     os.makedirs(args['output'], exist_ok=True)
 if not args['cli']:
+    listik = [0, 1, 0, 0, 0]
     threading.Thread(target=main).start()
+    def update_gui():
+        update_progress_bar(7, listik[0], listik[1], listik[2], listik[3], listik[4])
+        root.after(300, update_gui)
+    update_gui()
     root.mainloop()
 else:
     main()
