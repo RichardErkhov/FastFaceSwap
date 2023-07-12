@@ -49,6 +49,7 @@ flags implemented:
 
 --batch: enables batch mode, after it provide a suffix, for example --batch="_test.mp4" will result in output %target%_test.mp4
 
+--select-face: change the face you want, not all faces. After the argument add the path to the image with face from the video. (Just open video in video player, screenshot the frame and save it to file. Put this filename after --select-face argument)
 
 example:
 ``` python main.py -f test.jpg -t "C:/Users/user/Desktop/video.mp4" -o output/test.mp4 --threads 12 ```
