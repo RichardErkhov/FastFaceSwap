@@ -239,7 +239,7 @@ def upscale_image(image, generator ):
     image = np.expand_dims(image, axis=0).astype(np.float32)
     #output = generator.run(None, {'input': image})
     output = generator(image)#.predict(image, verbose=0)
-    return np.squeeze(output[0], axis=0)*255#cv2.cvtColor((np.squeeze(output, axis=0) * 255.0), cv2.COLOR_BGR2RGB) 
+    return np.squeeze(output, axis=0)*255#cv2.cvtColor((np.squeeze(output, axis=0) * 255.0), cv2.COLOR_BGR2RGB) 
 def show_error():
     messagebox.showerror("Error", "Preview mode does not work with camera, so please use normal mode")
 def show_warning():
