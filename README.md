@@ -32,7 +32,7 @@ flags implemented:
 
 --cli: run in cli mode, turns off preview and now accepts the switch of face enhancer from the command line
 
---face-enhancer: face enhancer, choice works only in cli mode. In gui mode, you need to choose from gui. Available options:
+--face-enhancer: argument works with cli, face enhancer. In gui mode, you need to choose from gui. Available options:
 
 1) none (default)
 2) gfpgan
@@ -50,6 +50,20 @@ flags implemented:
 --batch: enables batch mode, after it provide a suffix, for example --batch="_test.mp4" will result in output %target%_test.mp4
 
 --select-face: change the face you want, not all faces. After the argument add the path to the image with face from the video. (Just open video in video player, screenshot the frame and save it to file. Put this filename after --select-face argument)
+
+--extract-output-frames: extract frames from output video. After argument write the path to folder.
+
+--codeformer-fidelity: argument works with cli, sets up codeformer's fidelity
+
+--blend: argument works with cli, blending amount from 0.0 to 1.0
+
+--codeformer-skip_if_no_face: argument works with cli, Skip codeformer if no face found
+
+--codeformer-face-upscale: argument works with cli, Upscale the face using codeformer
+
+--codeformer-background-enhance:argument works with cli, Enhance the background using codeformer
+
+--codeformer-upscale: argument works with cli, the amount of upscale to apply to the frame using codeformer
 
 example:
 ``` python main.py -f test.jpg -t "C:/Users/user/Desktop/video.mp4" -o output/test.mp4 --threads 12 ```
