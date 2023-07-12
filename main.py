@@ -24,7 +24,7 @@ parser.add_argument('--codeformer-skip_if_no_face', help='works only in cli. Ski
 parser.add_argument('--codeformer-face-upscale', help='works only in cli. Upscale the face using codeformer', dest='codeformer_face_upscale', action='store_true')
 parser.add_argument('--codeformer-background-enhance', help='works only in cli. Enhance the background using codeformer', dest='codeformer_background_enhance', action='store_true')
 parser.add_argument('--codeformer-upscale', help='works with cli, the amount of upscale to apply to the frame using codeformer', default=1, dest='codeformer_upscale')
-
+parser.add_argument('--select-face', help='change the face you want, not all faces. After the argument add the path to the image with face from the video', dest='selective', default='')
 args = {}
 for name, value in vars(parser.parse_args()).items():
     args[name] = value
@@ -41,7 +41,6 @@ if args['extract_output'] != '':
     #testx = input("Are you sure you want to extract frames from videos? It will be done in the background (yes for yes and anything else for no):")
     #if testx == 'yes':
         #if args['batch'] == ''
-import os
 #just a fix, sometimes speeds up things
 os.environ['OMP_NUM_THREADS'] = '1'
 from types import NoneType
@@ -170,7 +169,10 @@ def load_restorer():
 def load_generator():
     global generator
     if isinstance(generator, NoneType):
-        generator = tf.keras.models.load_model('complex_test_256_v3_big_generator_pretrain_stage0_40999.h5')#, custom_objects={'Mish': Mish})
+        #model_path = 'generator.onnx'
+        #providers = rt.get_available_providers()
+        #generator = rt.InferenceSession(model_path, providers=providers)
+        generator = tf.keras.models.load_model('256_v2_big_generator_pretrain_stage1_38499.h5')#, custom_objects={'Mish': Mish})
     return generator
 def set_adjust_value():
     global adjust_x1, adjust_y1, adjust_x2, adjust_y2
@@ -414,17 +416,23 @@ def face_analyser_thread(frame):
         test1 = alpha != 0
     else:
         test1 = args['alpha'] != 0
-    if test1:
+    if test1:        
         original_frame = frame
         faces = face_analyser.get(frame)
         bboxes = []
         for face in faces:
+            if args['selective'] != '':
+                a = target_embedding.normed_embedding
+                b = face.normed_embedding
+                _, allow = compute_cosine_distance(a,b , 0.75)
+                if not allow:
+                    continue
             bboxes.append(face.bbox)
             ttest1 = False
             if not args['cli']:
                 if faceswapper_checkbox_var.get() == True:
                     ttest1=True
-            if not args['no_faceswap'] and ttest1 == True:
+            if not args['no_faceswap'] and (ttest1 == True or args['cli']):
                 frame = face_swapper.get(frame, face, source_face, paste_back=True)
             try:
                 test1 = checkbox_var.get() == 1 
@@ -481,12 +489,23 @@ def is_video_file(filename):
     video_extensions = ['.mp4', '.avi', '.mkv', '.mov', '.webm']  # Add more extensions as needed
     _, ext = os.path.splitext(filename)
     return ext.lower() in video_extensions
+
+def get_embedding(face_image):
+    try:
+        return face_analyser.get(face_image)
+    except IndexError:
+        return None
+    
 def main():
-    global args, width, height, frame_index, face_analyser, face_swapper, source_face, progress_var
+    global args, width, height, frame_index, face_analyser, face_swapper, source_face, progress_var, target_embedding
     face_swapper, face_analyser = prepare_models(args)
     input_face = cv2.imread(args['face'])
     source_face = sorted(face_analyser.get(input_face), key=lambda x: x.bbox[0])[0]
-    
+    target_embedding = None
+    if args['selective'] != '':
+        im = cv2.imread(args['selective'])
+        #im = cv2.resize(im, (640, 640))
+        target_embedding = get_embedding(im)[0]
     if args['image'] == True :
         image = cv2.imread(args['target_path'])
         bbox, image = face_analyser_thread(image)
