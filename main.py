@@ -528,6 +528,8 @@ def main():
     input_face = cv2.imread(args['face'])
     source_face = sorted(face_analyser.get(input_face), key=lambda x: x.bbox[0])[0]
     target_embedding = None
+    gpu_usage = 0
+    vram_usage = 0
     if args['selective'] != '':
         im = cv2.imread(args['selective'])
         #im = cv2.resize(im, (640, 640))
