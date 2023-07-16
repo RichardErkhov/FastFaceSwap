@@ -173,7 +173,7 @@ def load_generator():
         #model_path = 'generator.onnx'
         #providers = rt.get_available_providers()
         #generator = rt.InferenceSession(model_path, providers=providers)
-        generator = tf.keras.models.load_model('256_v2_big_generator_pretrain_stage1_38499.h5')#, custom_objects={'Mish': Mish})
+        generator = tf.keras.models.load_model('complex_256_v7_stage3_12999.h5')#, custom_objects={'Mish': Mish})
     return generator
 def set_adjust_value():
     global adjust_x1, adjust_y1, adjust_x2, adjust_y2
@@ -212,9 +212,9 @@ def get_system_usage():
 if not args['cli']:
     root = tk.Tk()
     if not args['preview']:
-        root.geometry("250x600")
+        root.geometry("300x640")
     else:
-        root.geometry("250x730")
+        root.geometry("300x770")
     faceswapper_checkbox_var = tk.IntVar(value=1)
     faceswapper_checkbox = ttk.Checkbutton(root, text="Face swapper", variable=faceswapper_checkbox_var)
     faceswapper_checkbox.pack()
@@ -265,6 +265,13 @@ if not args['cli']:
 
     button = tk.Button(root, text="Set Values", command=set_adjust_value)
     button.pack()  # Add the button to the window
+    
+    label = tk.Label(root, text="for these settings you need codeformer to be enabled")
+    label.pack()
+    label = tk.Label(root, text="and tick on the face enhancer")
+    
+    label.pack()
+     
     codeformer_fidelity = 0.1
     def on_codeformer_slider_move(value):
         global codeformer_fidelity
@@ -301,6 +308,8 @@ if not args['cli']:
     codeformer_upscale_amount.pack()
     codeformer_upscale_amount.set(1)
     
+    label = tk.Label(root, text="codeformer settings finished")
+    label.pack()
     if not args['preview'] and not isinstance(args['target_path'], int):
         progress_label = tk.Label(root)
         progress_label.pack()
@@ -485,7 +494,7 @@ def face_analyser_thread(frame):
                     else:
                         if args['face_enhancer'] == 'gfpgan':
                             facex = restorer_enhance(facer)
-                        elif args['face_enhancer'] == 'ffe':
+                        elif args['face_enhancer'] == 'ffe' and not args['lowmem']:
                             facex = upscale_image(facer, load_generator())
                         elif args['face_enhancer'] == "gpfgan_onnx":
                             facex, _ = load_gfpganonnx().forward(facer)
@@ -515,13 +524,27 @@ def is_video_file(filename):
     video_extensions = ['.mp4', '.avi', '.mkv', '.mov', '.webm']  # Add more extensions as needed
     _, ext = os.path.splitext(filename)
     return ext.lower() in video_extensions
-
+def is_picture_file(filename):
+    image_extensions = ['.jpg', '.jpeg', '.png', '.bmp', '.svg', '.tiff', '.webp']
+    _, ext = os.path.splitext(filename)
+    return ext.lower() in image_extensions
 def get_embedding(face_image):
     try:
         return face_analyser.get(face_image)
     except IndexError:
         return None
-    
+
+def process_image(input_path, output_path):
+    image = cv2.imread(input_path)
+    bbox, image = face_analyser_thread(image)
+    try:
+        test1 = checkbox_var.get() == 1
+    except:
+        test1 = False
+    if test1 or (args['face_enhancer'] != 'none' and args['cli']):
+        image = restorer_enhance(image)
+    cv2.imwrite(output_path, image)
+
 def main():
     global args, width, height, frame_index, face_analyser, face_swapper, source_face, progress_var, target_embedding, count, frame_number, listik
     face_swapper, face_analyser = prepare_models(args)
@@ -535,15 +558,26 @@ def main():
         #im = cv2.resize(im, (640, 640))
         target_embedding = get_embedding(im)[0]
     if args['image'] == True :
-        image = cv2.imread(args['target_path'])
-        bbox, image = face_analyser_thread(image)
-        try:
-            test1 = checkbox_var.get() == 1
-        except:
-            test1 = False
-        if test1 or (args['face_enhancer'] != 'none' and args['cli']):
-            image = restorer_enhance(image)
-        cv2.imwrite(args['output'], image)
+        images = []
+        if args['batch'] != "":
+            for i in os.listdir(args['target_path']):
+                if is_picture_file(i):
+                    images.append([os.path.join(args['target_path'], i), os.path.join(args['output'], f"{i}{args['batch']}.png")])
+        else:
+            images.append([args['target_path'], args['output']])
+        original_threads = threading.active_count()
+        image_amount = len(images)
+        for it, i in tqdm(enumerate(images)):
+            if not args['nocuda']:
+                vram_usage, gpu_usage = round(gpu_memory_total - torch.cuda.mem_get_info(device)[0] / 1024**3,2), torch.cuda.utilization(device=device)
+                listik = [it, image_amount, gpu_usage, vram_usage, gpu_memory_total]
+            else:
+                listik = [it, image_amount, 0, 0, 0]
+            threading.Thread(target=process_image, args=(images[0], images[1])).start()
+            while threading.active_count() > (args['threads'] + original_threads):
+                time.sleep(0.01)
+        while threading.active_count() > original_threads:
+            time.sleep(0.01)
         print("image processing finished")
         return 
     caps = []
