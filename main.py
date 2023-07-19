@@ -58,7 +58,7 @@ if not args['lowmem']:
     tf.config.experimental.set_memory_growth(physical_devices[0], True)
     #tf.config.experimental.set_virtual_device_configuration(
     #        physical_devices[0],
-    #        [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=8192)])
+    #        [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=4096)])
     prepare()
 if args['experimental']:
     try:
@@ -327,6 +327,11 @@ if not args['cli']:
             global frame_index
             frame_index += amount
             slider.set(frame_index)
+        frame_move = 0
+        def edit_play(amount):
+            global frame_move
+            frame_move = amount
+            #slider.set(frame_move)
         frame_amount = count_frames(args['target_path'])
         label = tk.Label(root, text="frame number")
         label.pack()
@@ -339,6 +344,17 @@ if not args['cli']:
         frame_back_button.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         frame_forward_button = tk.Button(root, text='>', width=button_width, command=lambda: edit_index(1))
         frame_forward_button.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        label = tk.Label(text = "backplay, pause, play")
+        label.pack()
+        frame_back_button = tk.Button(root, text='◀️', width=button_width, command=lambda: edit_play(-1))
+        frame_back_button.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        frame_back_button = tk.Button(root, text='⏸️', width=button_width, command=lambda: edit_play(0))
+        frame_back_button.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        frame_back_button = tk.Button(root, text='▶️', width=button_width, command=lambda: edit_play(1))
+        frame_back_button.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        
+
     def update_progress_bar(length, progress, total, gpu_usage, vram_usage, total_vram):
         if not args['preview'] and not isinstance(args['target_path'], int):
             filled_length = int(length * progress // total)
@@ -546,13 +562,14 @@ def process_image(input_path, output_path):
     cv2.imwrite(output_path, image)
 
 def main():
-    global args, width, height, frame_index, face_analyser, face_swapper, source_face, progress_var, target_embedding, count, frame_number, listik
+    global args, width, height, frame_index, face_analyser,frame_move, face_swapper, source_face, progress_var, target_embedding, count, frame_number, listik
     face_swapper, face_analyser = prepare_models(args)
     input_face = cv2.imread(args['face'])
     source_face = sorted(face_analyser.get(input_face), key=lambda x: x.bbox[0])[0]
     target_embedding = None
     gpu_usage = 0
     vram_usage = 0
+    play = 0
     if args['selective'] != '':
         im = cv2.imread(args['selective'])
         #im = cv2.resize(im, (640, 640))
@@ -623,7 +640,7 @@ def main():
                         while len(temp) >= int(args['threads']):
                             bbox, frame = temp.pop(0).join()
                     else:
-                        bbox, frame = face_analyser_thread(get_nth_frame(cap, frame_index))
+                        bbox, frame = face_analyser_thread(get_nth_frame(cap, frame_index-1))
                     if not args['cli']:
                         if show_bbox_var.get() == 1:
                             for i in bbox: 
@@ -649,6 +666,12 @@ def main():
                         cv2.imshow('Face Detection', frame)
                     if not args['preview']:
                         out.write(frame)
+                    if args['preview']:
+                        frame_index += frame_move
+                        if frame_index < 1:
+                            frame_index = 1
+                        elif frame_index > frame_number:
+                            frame_index = frame_number
                     if args['extract_output'] != '':
                         cv2.imwrite(os.path.join(args['extract_output'], os.path.basename(file), f"frame_{count:05d}.png"), frame)
                     progressbar.update(1)
@@ -687,6 +710,7 @@ def main():
                     old_number = frame_index
                     while frame_index == old_number:
                         time.sleep(0.01)
+                    
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
         out.release()
@@ -711,9 +735,16 @@ if args['batch'] != '':
 if not args['cli']:
     listik = [0, 1, 0, 0, 0]
     threading.Thread(target=main).start()
-    def update_gui():
+    def update_gui(old_index=0):
+        global frame_index
         update_progress_bar(7, listik[0], listik[1], listik[2], listik[3], listik[4])
-        root.after(300, update_gui)
+        
+        if args['preview']:
+            if old_index != frame_index:  
+                slider.set(frame_index)
+                old_index = frame_index
+
+        root.after(300, update_gui, old_index)
     update_gui()
     root.mainloop()
 else:
