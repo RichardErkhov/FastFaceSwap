@@ -1,6 +1,5 @@
 import argparse
 import os
-import psutil
 parser = argparse.ArgumentParser()
 parser.add_argument('-f', '--face', help='use this face', dest='face', default="face.jpg")
 parser.add_argument('-t', '--target', help='replace this face. If camera, use integer like 0',default="0", dest='target_path')
@@ -55,7 +54,8 @@ from utils import *
 if not args['lowmem']:
     import tensorflow as tf
     physical_devices = tf.config.list_physical_devices('GPU')
-    tf.config.experimental.set_memory_growth(physical_devices[0], True)
+    for i in physical_devices:
+        tf.config.experimental.set_memory_growth(i, True)
     #tf.config.experimental.set_virtual_device_configuration(
     #        physical_devices[0],
     #        [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=4096)])
@@ -198,16 +198,6 @@ def count_frames(video_path):
     video.release()
     return total_frames
 
-def get_system_usage():
-    # Get RAM usage in GB
-    ram_usage = round(psutil.virtual_memory().used / 1024**3, 1)
-
-    # Get total RAM in GB
-    total_ram = round(psutil.virtual_memory().total / 1024**3, 1)
-
-    # Get CPU usage in percentage
-    cpu_usage = round(psutil.cpu_percent(), 0)
-    return ram_usage, total_ram, cpu_usage
 
 if not args['cli']:
     root = tk.Tk()
@@ -536,14 +526,7 @@ def face_analyser_thread(frame):
     return [], frame
 
 
-def is_video_file(filename):
-    video_extensions = ['.mp4', '.avi', '.mkv', '.mov', '.webm']  # Add more extensions as needed
-    _, ext = os.path.splitext(filename)
-    return ext.lower() in video_extensions
-def is_picture_file(filename):
-    image_extensions = ['.jpg', '.jpeg', '.png', '.bmp', '.svg', '.tiff', '.webp']
-    _, ext = os.path.splitext(filename)
-    return ext.lower() in image_extensions
+
 def get_embedding(face_image):
     try:
         return face_analyser.get(face_image)
@@ -590,7 +573,7 @@ def main():
                 listik = [it, image_amount, gpu_usage, vram_usage, gpu_memory_total]
             else:
                 listik = [it, image_amount, 0, 0, 0]
-            threading.Thread(target=process_image, args=(images[0], images[1])).start()
+            threading.Thread(target=process_image, args=(i[0], i[1])).start()
             while threading.active_count() > (args['threads'] + original_threads):
                 time.sleep(0.01)
         while threading.active_count() > original_threads:
