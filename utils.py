@@ -12,6 +12,25 @@ from PIL import Image
 from numpy import asarray
 import os
 from scipy.spatial import distance
+import psutil
+def is_video_file(filename):
+    video_extensions = ['.mp4', '.avi', '.mkv', '.mov', '.webm']  # Add more extensions as needed
+    _, ext = os.path.splitext(filename)
+    return ext.lower() in video_extensions
+def is_picture_file(filename):
+    image_extensions = ['.jpg', '.jpeg', '.png', '.bmp', '.svg', '.tiff', '.webp']
+    _, ext = os.path.splitext(filename)
+    return ext.lower() in image_extensions
+def get_system_usage():
+    # Get RAM usage in GB
+    ram_usage = round(psutil.virtual_memory().used / 1024**3, 1)
+
+    # Get total RAM in GB
+    total_ram = round(psutil.virtual_memory().total / 1024**3, 1)
+
+    # Get CPU usage in percentage
+    cpu_usage = round(psutil.cpu_percent(), 0)
+    return ram_usage, total_ram, cpu_usage
 def extract_frames_from_video(target_video, output_folder):
     target_video_name =  os.path.basename(target_video)
     ffmpeg_cmd = [
