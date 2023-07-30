@@ -492,33 +492,43 @@ def queue_processor():
         #wait if queue is empty
         while len(globalsx.render_queue) == 0:
             time.sleep(0.1)
-        current_video_id = globalsx.pop(0)
+        print("aa")
+        current_video_id = globalsx.render_queue.pop(0)
         if videos[current_video_id]['video_type'] == 0:
             show_error("sorry, images is not yet supported in this button, please use \"save frame button on player\"")
             continue
         videos[current_video_id]['cap'].set(cv2.CAP_PROP_POS_FRAMES, 0)
         temp = []
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        name = o.svideos[current_video_id]['path_to_output'],videos[current_video_id]['filename_output']+"_temp.mp4"
-        out = cv2.VideoWriter(name, fourcc, fps, (width, height))
+        width = int(videos[current_video_id]['cap'].get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(videos[current_video_id]['cap'].get(cv2.CAP_PROP_FRAME_HEIGHT))
+        name = os.path.join(videos[current_video_id]['path_to_output'],videos[current_video_id]['filename_output']+"_temp.mp4")
+        out = cv2.VideoWriter(name, fourcc, videos[current_video_id]['fps'], (width, height))
         with tqdm(total=videos[current_video_id]['frame_amount']) as pbar:
             start = time.time()
             while True:
                 ret, frame = videos[current_video_id]['cap'].read()
-                if not ret:
-                    break
-                if len(temp) > 4:
+                if ret:
+                    t = ThreadWithReturnValue(target=process, args=(frame,))
+                    t.start()
+                    temp.append(t)
+                if len(temp) >= 4 or not ret:
                     image = temp.pop(0).join()
-                writer.write(image)
-                
+                if len(temp) < 4 and ret:
+                    continue
+                out.write(image)
+                pbar.update(1)
+                if len(temp) == 0 and not ret:
+                    break
+            out.release()
             print(f"time taken for processing of the video: {time.time() - start} seconds")
         
-        
+threading.Thread(target=queue_processor).start()   
 
 #we just add to queue
 def export_video():
-    videos[current_video]['currently_processing'] = 1
-    globalsx.render_queue.append(current_video)
+    videos[globalsx.current_video]['currently_processing'] = 1
+    globalsx.render_queue.append(globalsx.current_video)
 def export_batch():
     pass
 def check_queue():
@@ -560,7 +570,8 @@ def video_length_converter(seconds):
 def update_current_frame():
     while True:
         if videos[globalsx.current_video]['video_type'] == 1:
-            videos[globalsx.current_video]['current_frame_original'] = get_nth_frame(videos[globalsx.current_video]['cap'], videos[globalsx.current_video]['frame_position'])
+            if videos[globalsx.current_video]['currently_processing'] == 0:
+                videos[globalsx.current_video]['current_frame_original'] = get_nth_frame(videos[globalsx.current_video]['cap'], videos[globalsx.current_video]['frame_position'])
         time.sleep(0.01)
 threading.Thread(target=update_current_frame).start()
 def update_gui(old_video_len=0, old_sel=0):
