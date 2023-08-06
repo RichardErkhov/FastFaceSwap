@@ -39,7 +39,7 @@ if args['batch'] != "" and not args['batch'].endswith(".mp4"):
 #    os.makedirs(args['extract_target'])
 if args['extract_output'] != '':
     os.makedirs(args['extract_output'])
-
+alpha = float(args['alpha'])
 #if args['cli']:
     #testx = input("Are you sure you want to extract frames from videos? It will be done in the background (yes for yes and anything else for no):")
     #if testx == 'yes':
