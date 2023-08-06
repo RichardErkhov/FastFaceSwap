@@ -1,5 +1,8 @@
 import argparse
 import os
+background_color = "#0d0140"
+button_color = "#7b6fb0"
+text_color = "#bebdbf"
 parser = argparse.ArgumentParser()
 parser.add_argument('-f', '--face', help='use this face', dest='face', default="face.jpg")
 parser.add_argument('-t', '--target', help='replace this face. If camera, use integer like 0',default="0", dest='target_path')
@@ -36,7 +39,7 @@ if args['batch'] != "" and not args['batch'].endswith(".mp4"):
 #    os.makedirs(args['extract_target'])
 if args['extract_output'] != '':
     os.makedirs(args['extract_output'])
-alpha = float(args['alpha'])
+
 #if args['cli']:
     #testx = input("Are you sure you want to extract frames from videos? It will be done in the background (yes for yes and anything else for no):")
     #if testx == 'yes':
@@ -110,23 +113,24 @@ if not args['cli']:
         menu.destroy()
     menu = tk.Tk()
     menu.geometry("500x500")
-    button_start_program = tk.Button(menu, text="Start Program", command=lambda: finish(menu))
+    menu.configure(bg=background_color)
+    button_start_program = tk.Button(menu, text="Start Program",bg=button_color, fg=text_color, command=lambda: finish(menu))
     button_start_program.pack()
-    select_face_label = tk.Label(text=f'Face filename: {args["face"]}')
+    select_face_label = tk.Label(text=f'Face filename: {args["face"]}', fg=text_color, bg=background_color)
     select_face_label.pack()
-    button_select_face = tk.Button(menu, text='Select face', command=select_face)
+    button_select_face = tk.Button(menu, text='Select face',bg=button_color, fg=text_color, command=select_face)
     button_select_face.pack()
-    select_target_label = tk.Label(text=f'Target filename: {args["target_path"]}')
+    select_target_label = tk.Label(text=f'Target filename: {args["target_path"]}', fg=text_color, bg=background_color)
     select_target_label.pack()
-    button_select_target = tk.Button(menu, text='Select target', command=select_target)
+    button_select_target = tk.Button(menu, text='Select target',bg=button_color, fg=text_color, command=select_target)
     button_select_target.pack()
-    button_select_camera = tk.Button(menu, text='run from camera', command=select_camera)
+    button_select_camera = tk.Button(menu, text='run from camera',bg=button_color, fg=text_color, command=select_camera)
     button_select_camera.pack()
-    select_output_label = tk.Label(text=f'output filename: {args["output"]}')
+    select_output_label = tk.Label(text=f'output filename: {args["output"]}', fg=text_color, bg=background_color)
     select_output_label.pack()
-    button_select_output = tk.Button(menu, text='Select output', command=select_output)
+    button_select_output = tk.Button(menu, text='Select output',bg=button_color, fg=text_color, command=select_output)
     button_select_output.pack()
-    thread_amount_label = tk.Label(menu, text='Select the number of threads')
+    thread_amount_label = tk.Label(menu, text='Select the number of threads', fg=text_color, bg=background_color)
     thread_amount_label.pack()
     thread_amount_input = tk.Entry(menu)
     thread_amount_input.pack()
@@ -205,11 +209,12 @@ if not args['cli']:
         root.geometry("300x640")
     else:
         root.geometry("300x770")
+    root.configure(bg=background_color)
     faceswapper_checkbox_var = tk.IntVar(value=1)
-    faceswapper_checkbox = ttk.Checkbutton(root, text="Face swapper", variable=faceswapper_checkbox_var)
+    faceswapper_checkbox = tk.Checkbutton(root, text="Face swapper", variable=faceswapper_checkbox_var, fg=text_color, bg=background_color)
     faceswapper_checkbox.pack()
     checkbox_var = tk.IntVar()
-    checkbox = ttk.Checkbutton(root, text="Face enhancer", variable=checkbox_var)
+    checkbox = tk.Checkbutton(root, text="Face enhancer", variable=checkbox_var, fg=text_color, bg=background_color)
     checkbox.pack()
     enhancer_choice = tk.StringVar(value='fastface enhancer')
     choices = ['fastface enhancer', 'gfpgan', 'codeformer', 'gfpgan onnx']
@@ -222,43 +227,43 @@ if not args['cli']:
 
 
     show_bbox_var = tk.IntVar()
-    show_bbox = ttk.Checkbutton(root, text="draw bounding box around faces", variable=show_bbox_var)
+    show_bbox = tk.Checkbutton(root, text="draw bounding box around faces", variable=show_bbox_var, fg=text_color, bg=background_color)
     show_bbox.pack()
-    label = tk.Label(root, text="bounding box adjustment")
+    label = tk.Label(root, text="bounding box adjustment", fg=text_color, bg=background_color)
     label.pack()
 
-    label = tk.Label(root, text="up")
+    label = tk.Label(root, text="up", fg=text_color, bg=background_color)
     label.pack()
 
     entry_y1 = tk.Entry(root)
     entry_y1.pack() 
     entry_y1.insert(0, adjust_y1)
 
-    label = tk.Label(root, text="right")
+    label = tk.Label(root, text="right", fg=text_color, bg=background_color)
     label.pack()
 
     entry_x2 = tk.Entry(root)
     entry_x2.pack() 
     entry_x2.insert(0, adjust_x2)
-    label = tk.Label(root, text="left")
+    label = tk.Label(root, text="left", fg=text_color, bg=background_color)
     label.pack()
 
     entry_x1 = tk.Entry(root)
     entry_x1.pack() 
     entry_x1.insert(0, adjust_x1)
-    label = tk.Label(root, text="down")
+    label = tk.Label(root, text="down", fg=text_color, bg=background_color)
     label.pack()
 
     entry_y2 = tk.Entry(root)
     entry_y2.pack() 
     entry_y2.insert(0, adjust_y2)
 
-    button = tk.Button(root, text="Set Values", command=set_adjust_value)
+    button = tk.Button(root, text="Set Values",bg=button_color, fg=text_color, command=set_adjust_value)
     button.pack()  # Add the button to the window
     
-    label = tk.Label(root, text="for these settings you need codeformer to be enabled")
+    label = tk.Label(root, text="for these settings you need codeformer to be enabled", fg=text_color, bg=background_color)
     label.pack()
-    label = tk.Label(root, text="and tick on the face enhancer")
+    label = tk.Label(root, text="and tick on the face enhancer", fg=text_color, bg=background_color)
     
     label.pack()
      
@@ -266,7 +271,7 @@ if not args['cli']:
     def on_codeformer_slider_move(value):
         global codeformer_fidelity
         codeformer_fidelity = float(value)
-    label = tk.Label(root, text="Codeformer fidelity")
+    label = tk.Label(root, text="Codeformer fidelity", fg=text_color, bg=background_color)
     label.pack()
     codeformer_slider = tk.Scale(root, from_=0.1, to=2.0, resolution=0.1,  orient=tk.HORIZONTAL, command=on_codeformer_slider_move)
     codeformer_slider.pack()
@@ -274,21 +279,21 @@ if not args['cli']:
     def alpha_slider_move(value):
         global alpha
         alpha = float(value)
-    label = tk.Label(root, text="blender")
+    label = tk.Label(root, text="blender", fg=text_color, bg=background_color)
     label.pack()
     alpha_slider = tk.Scale(root, from_=0.0, to=1.0, resolution=0.1,  orient=tk.HORIZONTAL, command=alpha_slider_move)
     alpha_slider.pack()
     alpha_slider.set(1.0)
     
     codeformer_skip_if_no_face_var = tk.IntVar()
-    codeformer_skip_if_no_face = ttk.Checkbutton(root, text="Skip codeformer if not face is found", variable=codeformer_skip_if_no_face_var)
+    codeformer_skip_if_no_face = tk.Checkbutton(root, text="Skip codeformer if not face is found", variable=codeformer_skip_if_no_face_var, fg=text_color, bg=background_color)
     codeformer_skip_if_no_face.pack()
     codeformer_upscale_face_var = tk.IntVar()
-    codeformer_upscale_face = ttk.Checkbutton(root, text="Upscale face using codeformer", variable=codeformer_upscale_face_var)
+    codeformer_upscale_face = tk.Checkbutton(root, text="Upscale face using codeformer", variable=codeformer_upscale_face_var, fg=text_color, bg=background_color)
     codeformer_upscale_face.pack()
     codeformer_upscale_face_var.set(1)
     codeformer_enhance_background_var = tk.IntVar()
-    codeformer_enhance_background = ttk.Checkbutton(root, text="Enhance background using codeformer", variable=codeformer_enhance_background_var)
+    codeformer_enhance_background = tk.Checkbutton(root, text="Enhance background using codeformer", variable=codeformer_enhance_background_var, fg=text_color, bg=background_color)
     codeformer_enhance_background.pack()
     codeformer_upscale_amount_value = 1
     def codeformer_upscale_amount_move(value):
@@ -298,15 +303,15 @@ if not args['cli']:
     codeformer_upscale_amount.pack()
     codeformer_upscale_amount.set(1)
     
-    label = tk.Label(root, text="codeformer settings finished")
+    label = tk.Label(root, text="codeformer settings finished", fg=text_color, bg=background_color)
     label.pack()
     if not args['preview'] and not isinstance(args['target_path'], int):
-        progress_label = tk.Label(root)
+        progress_label = tk.Label(root, fg=text_color, bg=background_color)
         progress_label.pack()
-    usage_label1 = tk.Label(root)
+    usage_label1 = tk.Label(root, fg=text_color, bg=background_color)
     usage_label1.pack()
     if not args['nocuda']:
-        usage_label2 = tk.Label(root)
+        usage_label2 = tk.Label(root, fg=text_color, bg=background_color)
         usage_label2.pack()
     if args['preview']:
         frame_index = 0
@@ -323,24 +328,24 @@ if not args['cli']:
             frame_move = amount
             #slider.set(frame_move)
         frame_amount = count_frames(args['target_path'])
-        label = tk.Label(root, text="frame number")
+        label = tk.Label(root, text="frame number", fg=text_color, bg=background_color)
         label.pack()
         slider = tk.Scale(root, from_=1, to=frame_amount, orient=tk.HORIZONTAL, command=on_slider_move)
         slider.pack()
         frame_count_label = tk.Label(root, text=f"total frames: {frame_amount}")
         frame_count_label.pack(fill=tk.X)
         button_width = root.winfo_width() // 2
-        frame_back_button = tk.Button(root, text='<', width=button_width, command=lambda: edit_index(-1))
+        frame_back_button = tk.Button(root, text='<',bg=button_color, fg=text_color, width=button_width, command=lambda: edit_index(-1))
         frame_back_button.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        frame_forward_button = tk.Button(root, text='>', width=button_width, command=lambda: edit_index(1))
+        frame_forward_button = tk.Button(root, text='>',bg=button_color, fg=text_color, width=button_width, command=lambda: edit_index(1))
         frame_forward_button.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        label = tk.Label(text = "backplay, pause, play")
+        label = tk.Label(text = "backplay, pause, play", fg=text_color, bg=background_color)
         label.pack()
-        frame_back_button = tk.Button(root, text='◀️', width=button_width, command=lambda: edit_play(-1))
+        frame_back_button = tk.Button(root, text='◀️',bg=button_color, fg=text_color, width=button_width, command=lambda: edit_play(-1))
         frame_back_button.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        frame_back_button = tk.Button(root, text='⏸️', width=button_width, command=lambda: edit_play(0))
+        frame_back_button = tk.Button(root, text='⏸️',bg=button_color, fg=text_color, width=button_width, command=lambda: edit_play(0))
         frame_back_button.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        frame_back_button = tk.Button(root, text='▶️', width=button_width, command=lambda: edit_play(1))
+        frame_back_button = tk.Button(root, text='▶️',bg=button_color, fg=text_color, width=button_width, command=lambda: edit_play(1))
         frame_back_button.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         
@@ -415,6 +420,7 @@ def create_cap():
     if isinstance(args['target_path'], str):
         name = f"{args['output']}_temp.mp4"
     out = cv2.VideoWriter(name, fourcc, fps, (width, height))
+    out.set(cv2.VIDEOWRITER_PROP_QUALITY, 100)
     frame_number = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     return [cap, fps, width, height, out, name, args['target_path'], frame_number]
 
@@ -521,6 +527,7 @@ def face_analyser_thread(frame):
         else:
             test1 = args['alpha'] != 1
         if test1:
+            print(alpha)
             frame = merge_face(frame, original_frame, alpha)
         return bboxes, frame
     return [], frame
