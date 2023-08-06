@@ -273,7 +273,7 @@ if not args['cli']:
         codeformer_fidelity = float(value)
     label = tk.Label(root, text="Codeformer fidelity", fg=text_color, bg=background_color)
     label.pack()
-    codeformer_slider = tk.Scale(root, from_=0.1, to=2.0, resolution=0.1,  orient=tk.HORIZONTAL, command=on_codeformer_slider_move)
+    codeformer_slider = tk.Scale(root, from_=0.1, to=2.0, resolution=0.1,  orient=tk.HORIZONTAL, fg=text_color, bg=background_color, command=on_codeformer_slider_move)
     codeformer_slider.pack()
     alpha = 0.0
     def alpha_slider_move(value):
@@ -281,7 +281,7 @@ if not args['cli']:
         alpha = float(value)
     label = tk.Label(root, text="blender", fg=text_color, bg=background_color)
     label.pack()
-    alpha_slider = tk.Scale(root, from_=0.0, to=1.0, resolution=0.1,  orient=tk.HORIZONTAL, command=alpha_slider_move)
+    alpha_slider = tk.Scale(root, from_=0.0, to=1.0, resolution=0.1,fg=text_color, bg=background_color,  orient=tk.HORIZONTAL, command=alpha_slider_move)
     alpha_slider.pack()
     alpha_slider.set(1.0)
     
@@ -299,7 +299,7 @@ if not args['cli']:
     def codeformer_upscale_amount_move(value):
         global codeformer_upscale_amount_value
         codeformer_upscale_amount_value = int(value)
-    codeformer_upscale_amount = tk.Scale(root, from_=1, to=3, resolution=1,  orient=tk.HORIZONTAL, command=codeformer_upscale_amount_move)
+    codeformer_upscale_amount = tk.Scale(root, from_=1, to=3, resolution=1, fg=text_color, bg=background_color, orient=tk.HORIZONTAL, command=codeformer_upscale_amount_move)
     codeformer_upscale_amount.pack()
     codeformer_upscale_amount.set(1)
     
@@ -330,7 +330,7 @@ if not args['cli']:
         frame_amount = count_frames(args['target_path'])
         label = tk.Label(root, text="frame number", fg=text_color, bg=background_color)
         label.pack()
-        slider = tk.Scale(root, from_=1, to=frame_amount, orient=tk.HORIZONTAL, command=on_slider_move)
+        slider = tk.Scale(root, from_=1, to=frame_amount, fg=text_color, bg=background_color,orient=tk.HORIZONTAL, command=on_slider_move)
         slider.pack()
         frame_count_label = tk.Label(root, text=f"total frames: {frame_amount}")
         frame_count_label.pack(fill=tk.X)
