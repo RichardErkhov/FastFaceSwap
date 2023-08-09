@@ -581,7 +581,7 @@ def main():
             else:
                 listik = [it, image_amount, 0, 0, 0]
             threading.Thread(target=process_image, args=(i[0], i[1])).start()
-            while threading.active_count() > (args['threads'] + original_threads):
+            while threading.active_count() > (int(args['threads']) + original_threads):
                 time.sleep(0.01)
         while threading.active_count() > original_threads:
             time.sleep(0.01)
