@@ -18,6 +18,8 @@ from types import NoneType
 from gfpgan import GFPGANer
 import sys
 import torch
+if not globalsz.args['nocuda']:
+    torch.backends.cudnn.benchmark = True
 from swapperfp16 import get_model
 import requests
 import tqdm

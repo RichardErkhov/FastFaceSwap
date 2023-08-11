@@ -1,11 +1,13 @@
 import argparse
 import os
 import globalsz
+mode = 2  # 1 for side-by-side, 2 for stacked
 background_color = "#222831"
 button_color = "#0E8388"
 text_color = "#EEEEEE"
 tick_color = "#222831"
 tick_background_color = "#EEEEEE"
+border_color = "#444A53"
 parser = argparse.ArgumentParser()
 parser.add_argument('-f', '--face', help='use this face', dest='face', default="face.jpg")
 parser.add_argument('-t', '--target', help='replace this face. If camera, use integer like 0',default="0", dest='target_path')
@@ -44,6 +46,9 @@ if args['batch'] != "" and not args['batch'].endswith(".mp4"):
 if args['extract_output'] != '':
     os.makedirs(args['extract_output'])
 alpha = float(args['alpha'])
+frame = None #so tkinter doesn't die 
+original_frame = None
+swapped_frame = None
 #if args['cli']:
     #testx = input("Are you sure you want to extract frames from videos? It will be done in the background (yes for yes and anything else for no):")
     #if testx == 'yes':
@@ -59,6 +64,7 @@ from plugins.codeformer_app_cv2 import inference_app as codeformer
 globalsz.lowmem = args['lowmem']
 from utils import *
 from tqdm import tqdm
+from PIL import Image, ImageTk
 if not args['lowmem']:
     import tensorflow as tf
     prepare()
@@ -168,7 +174,7 @@ def set_adjust_value():
 
 if not args['cli']:
     root = tk.Tk()
-    
+
     style = ttk.Style()
     # Set the theme to "clam"
     style.theme_use("clam")
@@ -182,152 +188,226 @@ if not args['cli']:
 
     # Ensure the Checkbutton doesn't change appearance when active
     style.map("TCheckbutton", 
-            indicatorbackground=[("active", tick_background_color)], 
-            indicatorforeground=[("active", tick_color)],
-            background=[("active", background_color)], 
-            foreground=[("active", text_color)])
+              indicatorbackground=[("active", tick_background_color)], 
+              indicatorforeground=[("active", tick_color)],
+              background=[("active", background_color)], 
+              foreground=[("active", text_color)])
     if not args['preview']:
-        root.geometry("300x650")
+        root.geometry("1000x650")
     else:
-        root.geometry("300x770")
+        root.geometry("1000x770")
     root.configure(bg=background_color)
+    left_frame = tk.Frame(root, bg=background_color)
+    left_frame.grid(row=0, column=0, rowspan=2, sticky="nsew")
+    
     faceswapper_checkbox_var = tk.IntVar(value=1)
-    faceswapper_checkbox = ttk.Checkbutton(root, text="Face swapper", variable=faceswapper_checkbox_var, style="TCheckbutton")
-    faceswapper_checkbox.pack()
+    faceswapper_checkbox = ttk.Checkbutton(left_frame, text="Face swapper", variable=faceswapper_checkbox_var, style="TCheckbutton")
+    faceswapper_checkbox.grid(row=0, column=0)
+    
     checkbox_var = tk.IntVar()
-    checkbox = ttk.Checkbutton(root, text="Face enhancer", variable=checkbox_var, style="TCheckbutton")
-    checkbox.pack()
+    checkbox = ttk.Checkbutton(left_frame, text="Face enhancer", variable=checkbox_var, style="TCheckbutton")
+    checkbox.grid(row=1, column=0)
+    
     enhancer_choice = tk.StringVar(value='fastface enhancer')
     choices = ['fastface enhancer', 'gfpgan', 'codeformer', 'gfpgan onnx']
 
     if not args['lowmem']:
         choices.remove('fastface enhancer')
 
-    dropdown = ttk.OptionMenu(root, enhancer_choice, enhancer_choice.get(), *choices)
-    dropdown.pack()
-
+    dropdown = ttk.OptionMenu(left_frame, enhancer_choice, enhancer_choice.get(), *choices)
+    dropdown.grid(row=2, column=0)
 
     show_bbox_var = tk.IntVar()
-    show_bbox = ttk.Checkbutton(root, text="draw bounding box around faces", variable=show_bbox_var, style="TCheckbutton")
-    show_bbox.pack()
-    label = tk.Label(root, text="bounding box adjustment", fg=text_color, bg=background_color)
-    label.pack()
-
-    label = tk.Label(root, text="up", fg=text_color, bg=background_color)
-    label.pack()
-
-    entry_y1 = tk.Entry(root)
-    entry_y1.pack() 
+    show_bbox = ttk.Checkbutton(left_frame, text="draw bounding box around faces", variable=show_bbox_var, style="TCheckbutton")
+    show_bbox.grid(row=3, column=0)
+    
+    label = tk.Label(left_frame, text="bounding box adjustment", fg=text_color, bg=background_color)
+    label.grid(row=4, column=0)
+    
+    label = tk.Label(left_frame, text="up", fg=text_color, bg=background_color)
+    label.grid(row=5, column=0)
+    
+    entry_y1 = tk.Entry(left_frame)
+    entry_y1.grid(row=6, column=0)
     entry_y1.insert(0, adjust_y1)
-
-    label = tk.Label(root, text="right", fg=text_color, bg=background_color)
-    label.pack()
-
-    entry_x2 = tk.Entry(root)
-    entry_x2.pack() 
+    
+    label = tk.Label(left_frame, text="right", fg=text_color, bg=background_color)
+    label.grid(row=7, column=0)
+    
+    entry_x2 = tk.Entry(left_frame)
+    entry_x2.grid(row=8, column=0)
     entry_x2.insert(0, adjust_x2)
-    label = tk.Label(root, text="left", fg=text_color, bg=background_color)
-    label.pack()
-
-    entry_x1 = tk.Entry(root)
-    entry_x1.pack() 
+    
+    label = tk.Label(left_frame, text="left", fg=text_color, bg=background_color)
+    label.grid(row=9, column=0)
+    
+    entry_x1 = tk.Entry(left_frame)
+    entry_x1.grid(row=10, column=0)
     entry_x1.insert(0, adjust_x1)
-    label = tk.Label(root, text="down", fg=text_color, bg=background_color)
-    label.pack()
-
-    entry_y2 = tk.Entry(root)
-    entry_y2.pack() 
+    
+    label = tk.Label(left_frame, text="down", fg=text_color, bg=background_color)
+    label.grid(row=11, column=0)
+    
+    entry_y2 = tk.Entry(left_frame)
+    entry_y2.grid(row=12, column=0)
     entry_y2.insert(0, adjust_y2)
-
-    button = tk.Button(root, text="Set Values",bg=button_color, fg=text_color, command=set_adjust_value)
-    button.pack()  # Add the button to the window
     
-    label = tk.Label(root, text="for these settings you need codeformer to be enabled", fg=text_color, bg=background_color)
-    label.pack()
-    label = tk.Label(root, text="and tick on the face enhancer", fg=text_color, bg=background_color)
+    button = tk.Button(left_frame, text="Set Values", bg=button_color, fg=text_color, command=set_adjust_value)
+    button.grid(row=13, column=0)
     
-    label.pack()
-     
+    label = tk.Label(left_frame, text="for these settings you need codeformer to be enabled", fg=text_color, bg=background_color)
+    label.grid(row=14, column=0)
+    
+    label = tk.Label(left_frame, text="and tick on the face enhancer", fg=text_color, bg=background_color)
+    label.grid(row=15, column=0)
+    
     codeformer_fidelity = 0.1
     def on_codeformer_slider_move(value):
         global codeformer_fidelity
         codeformer_fidelity = float(value)
-    label = tk.Label(root, text="Codeformer fidelity", fg=text_color, bg=background_color)
-    label.pack()
-    codeformer_slider = tk.Scale(root, from_=0.1, to=2.0, resolution=0.1,  orient=tk.HORIZONTAL, fg=text_color, bg=background_color, command=on_codeformer_slider_move)
-    codeformer_slider.pack()
+    
+    label = tk.Label(left_frame, text="Codeformer fidelity", fg=text_color, bg=background_color)
+    label.grid(row=16, column=0)
+    
+    codeformer_slider = tk.Scale(left_frame, from_=0.1, to=2.0, resolution=0.1,  orient=tk.HORIZONTAL, fg=text_color, bg=background_color, command=on_codeformer_slider_move)
+    codeformer_slider.grid(row=17, column=0)
+    
     alpha = 0.0
     def alpha_slider_move(value):
         global alpha
         alpha = float(value)
-    label = tk.Label(root, text="blender", fg=text_color, bg=background_color)
-    label.pack()
-    alpha_slider = tk.Scale(root, from_=0.0, to=1.0, resolution=0.1,fg=text_color, bg=background_color,  orient=tk.HORIZONTAL, command=alpha_slider_move)
-    alpha_slider.pack()
+    
+    label = tk.Label(left_frame, text="blender", fg=text_color, bg=background_color)
+    label.grid(row=18, column=0)
+    
+    alpha_slider = tk.Scale(left_frame, from_=0.0, to=1.0, resolution=0.1, fg=text_color, bg=background_color,  orient=tk.HORIZONTAL, command=alpha_slider_move)
+    alpha_slider.grid(row=19, column=0)
     alpha_slider.set(1.0)
     
     codeformer_skip_if_no_face_var = tk.IntVar()
-    codeformer_skip_if_no_face = ttk.Checkbutton(root, text="Skip codeformer if not face is found", variable=codeformer_skip_if_no_face_var, style="TCheckbutton")
-    codeformer_skip_if_no_face.pack()
+    codeformer_skip_if_no_face = ttk.Checkbutton(left_frame, text="Skip codeformer if not face is found", variable=codeformer_skip_if_no_face_var, style="TCheckbutton")
+    codeformer_skip_if_no_face.grid(row=20, column=0)
+    
     codeformer_upscale_face_var = tk.IntVar()
-    codeformer_upscale_face = ttk.Checkbutton(root, text="Upscale face using codeformer", variable=codeformer_upscale_face_var, style="TCheckbutton")
-    codeformer_upscale_face.pack()
+    codeformer_upscale_face = ttk.Checkbutton(left_frame, text="Upscale face using codeformer", variable=codeformer_upscale_face_var, style="TCheckbutton")
+    codeformer_upscale_face.grid(row=21, column=0)
     codeformer_upscale_face_var.set(1)
+    
     codeformer_enhance_background_var = tk.IntVar()
-    codeformer_enhance_background = ttk.Checkbutton(root, text="Enhance background using codeformer", variable=codeformer_enhance_background_var, style="TCheckbutton")
-    codeformer_enhance_background.pack()
+    codeformer_enhance_background = ttk.Checkbutton(left_frame, text="Enhance background using codeformer", variable=codeformer_enhance_background_var, style="TCheckbutton")
+    codeformer_enhance_background.grid(row=22, column=0)
+    
     codeformer_upscale_amount_value = 1
     def codeformer_upscale_amount_move(value):
         global codeformer_upscale_amount_value
         codeformer_upscale_amount_value = int(value)
-    codeformer_upscale_amount = tk.Scale(root, from_=1, to=3, resolution=1, fg=text_color, bg=background_color, orient=tk.HORIZONTAL, command=codeformer_upscale_amount_move)
-    codeformer_upscale_amount.pack()
+    
+    codeformer_upscale_amount = tk.Scale(left_frame, from_=1, to=3, resolution=1, fg=text_color, bg=background_color, orient=tk.HORIZONTAL, command=codeformer_upscale_amount_move)
+    codeformer_upscale_amount.grid(row=23, column=0)
     codeformer_upscale_amount.set(1)
     
-    label = tk.Label(root, text="codeformer settings finished", fg=text_color, bg=background_color)
-    label.pack()
+    label = tk.Label(left_frame, text="codeformer settings finished", fg=text_color, bg=background_color)
+    label.grid(row=24, column=0)
+    
     if not args['preview'] and not isinstance(args['target_path'], int):
-        progress_label = tk.Label(root, fg=text_color, bg=background_color)
-        progress_label.pack()
-    usage_label1 = tk.Label(root, fg=text_color, bg=background_color)
-    usage_label1.pack()
+        progress_label = tk.Label(left_frame, fg=text_color, bg=background_color)
+        progress_label.grid(row=25, column=0)
+    
+    usage_label1 = tk.Label(left_frame, fg=text_color, bg=background_color)
+    usage_label1.grid(row=26, column=0)
+    
     if not args['nocuda']:
-        usage_label2 = tk.Label(root, fg=text_color, bg=background_color)
-        usage_label2.pack()
+        usage_label2 = tk.Label(left_frame, fg=text_color, bg=background_color)
+        usage_label2.grid(row=27, column=0)
+    
     if args['preview']:
         frame_index = 0
         def on_slider_move(value):
             global frame_index
             frame_index = int(value)
+        
         def edit_index(amount):
             global frame_index
             frame_index += amount
             slider.set(frame_index)
+        
         frame_move = 0
+        
         def edit_play(amount):
             global frame_move
             frame_move = amount
             #slider.set(frame_move)
+        
         frame_amount = count_frames(args['target_path'])
-        label = tk.Label(root, text="frame number", fg=text_color, bg=background_color)
-        label.pack()
-        slider = tk.Scale(root, from_=1, to=frame_amount, fg=text_color, bg=background_color,orient=tk.HORIZONTAL, command=on_slider_move)
-        slider.pack()
-        frame_count_label = tk.Label(root, text=f"total frames: {frame_amount}", fg=text_color, bg=background_color)
-        frame_count_label.pack(fill=tk.X)
-        button_width = root.winfo_width() // 2
-        frame_back_button = tk.Button(root, text='<',bg=button_color, fg=text_color, width=button_width, command=lambda: edit_index(-1))
-        frame_back_button.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        frame_forward_button = tk.Button(root, text='>',bg=button_color, fg=text_color, width=button_width, command=lambda: edit_index(1))
-        frame_forward_button.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        label = tk.Label(text = "backplay, pause, play", fg=text_color, bg=background_color)
-        label.pack()
-        frame_back_button = tk.Button(root, text='◀️',bg=button_color, fg=text_color, width=button_width, command=lambda: edit_play(-1))
-        frame_back_button.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        frame_back_button = tk.Button(root, text='⏸️',bg=button_color, fg=text_color, width=button_width, command=lambda: edit_play(0))
-        frame_back_button.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        frame_back_button = tk.Button(root, text='▶️',bg=button_color, fg=text_color, width=button_width, command=lambda: edit_play(1))
-        frame_back_button.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        label = tk.Label(left_frame, text="frame number", fg=text_color, bg=background_color)
+        label.grid(row=28, column=0)
+        
+        slider = tk.Scale(left_frame, from_=1, to=frame_amount, fg=text_color, bg=background_color, orient=tk.HORIZONTAL, command=on_slider_move)
+        slider.grid(row=29, column=0, sticky="ew")
+        
+        frame_count_label = tk.Label(left_frame, text=f"total frames: {frame_amount}", fg=text_color, bg=background_color)
+        frame_count_label.grid(row=30, column=0, sticky="ew")
+        
+        button_width = left_frame.winfo_width() // 2
+        
+        label = tk.Label(left_frame, text = "frame back, frame forward, backplay, pause, play", fg=text_color, bg=background_color)
+        label.grid(row=31, column=0, sticky="ew")
+        
+        button_frame = tk.Frame(left_frame, bg=background_color)
+        button_frame.grid(row=32, column=0, pady=10, sticky="ew")
+        
+        frame_back_button = tk.Button(button_frame, text='<', bg=button_color, fg=text_color, width=button_width, command=lambda: edit_index(-1))
+        frame_back_button.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        
+        frame_forward_button = tk.Button(button_frame, text='>', bg=button_color, fg=text_color, width=button_width, command=lambda: edit_index(1))
+        frame_forward_button.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        
+        frame_back_button = tk.Button(button_frame, text='◀️', bg=button_color, fg=text_color, width=button_width, command=lambda: edit_play(-1))
+        frame_back_button.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        
+        frame_back_button = tk.Button(button_frame, text='⏸️', bg=button_color, fg=text_color, width=button_width, command=lambda: edit_play(0))
+        frame_back_button.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        
+        frame_back_button = tk.Button(button_frame, text='▶️', bg=button_color, fg=text_color, width=button_width, command=lambda: edit_play(1))
+        frame_back_button.pack(side=tk.LEFT, fill=tk.X, expand=True)
+    show_external_swapped_preview_var = tk.IntVar()
+    show_external_swapped_preview = ttk.Checkbutton(left_frame, text="Show swapped face in another window", variable=show_external_swapped_preview_var, style="TCheckbutton")
+    show_external_swapped_preview.grid(row=31, column=0)
+    show_external_swapped_preview_var.set(0)
+    
+    right_frame1 = tk.Frame(root, bg=background_color, highlightthickness=2, highlightbackground=border_color)
+    right_frame2 = tk.Frame(root, bg=background_color, highlightthickness=2, highlightbackground=border_color)
+    original_image_label = tk.Label(right_frame1, text="Image 1 Placeholder")
+    swapped_image_label = tk.Label(right_frame2, text="Image 2 Placeholder")
+
+    if mode == 1:
+        # Side by side configuration
+        right_frame1.grid(row=0, column=1, sticky="nsew")
+        original_image_label.pack(padx=15, pady=15)
+
+        right_frame2.grid(row=0, column=2, sticky="nsew")
+        swapped_image_label.pack(padx=15, pady=15)
+        
+        # Configure column weights
+        root.grid_columnconfigure(0, weight=1)
+        root.grid_columnconfigure(1, weight=4)
+        root.grid_columnconfigure(2, weight=4)
+        root.grid_rowconfigure(0, weight=1)
+
+    else:
+        # Stacked configuration
+        right_frame1.grid(row=0, column=1, columnspan=2, sticky="nsew")
+        original_image_label.grid(sticky="nsew", padx=15, pady=15)
+
+        right_frame2.grid(row=1, column=1, columnspan=2, sticky="nsew")
+        swapped_image_label.grid(sticky="nsew", padx=15, pady=15)
+        
+        # Configure column and row weights
+        root.grid_columnconfigure(0, weight=1)
+        root.grid_columnconfigure(1, weight=4)
+        root.grid_columnconfigure(2, weight=4)
+        root.grid_rowconfigure(0, weight=1) 
+        root.grid_rowconfigure(1, weight=1)
 
         
 
@@ -351,12 +431,12 @@ if not args['cli']:
 
 def face_analyser_thread(frame, sw):
     global alpha
+    original_frame = frame
     if not args['cli']:
         test1 = alpha != 0
     else:
         test1 = args['alpha'] != 0
     if test1:        
-        original_frame = frame
         faces = face_analysers[sw].get(frame)
         bboxes = []
         for face in faces:
@@ -421,11 +501,45 @@ def face_analyser_thread(frame, sw):
         if test1:
             print(alpha)
             frame = merge_face(frame, original_frame, alpha)
-        return bboxes, frame
-    return [], frame
+        return bboxes, frame, original_frame
+    return [], frame, original_frame
 
+def cv2_image_to_tkinter(cv2_image, target_width, target_height):
+    """Convert a cv2 image to a tkinter compatible format and resize it to fit target dimensions."""
+    cv2_img_rgb = cv2.cvtColor(cv2_image, cv2.COLOR_BGR2RGB)
+    pil_image = Image.fromarray(cv2_img_rgb)
 
+    target_width -= 30
+    target_height -= 30
+    
+    # Resize the image while maintaining its aspect ratio
+    image_aspect = pil_image.width / pil_image.height
+    target_aspect = target_width / target_height
 
+    if image_aspect > target_aspect:
+        # Image is wider than target, fit to width
+        width = target_width
+        height = int(target_width / image_aspect)
+    else:
+        # Image is taller or equal to target, fit to height
+        height = target_height
+        width = int(target_height * image_aspect)
+
+    pil_image_resized = pil_image.resize((width, height), Image.ANTIALIAS)
+    
+    return ImageTk.PhotoImage(pil_image_resized)
+def frame_updater():
+    if not isinstance(original_frame, NoneType) and not isinstance(swapped_frame, NoneType):
+        #original_frame,swapped_frame
+        sizex1, sizey1 = right_frame1.winfo_width(), right_frame1.winfo_height()
+        sizex2, sizey2 = right_frame2.winfo_width(), right_frame2.winfo_height()
+        tk_image = cv2_image_to_tkinter(original_frame, sizex1, sizey1)
+        original_image_label.configure(image=tk_image)
+        original_image_label.image = tk_image  # Keep a reference to prevent garbage collection
+        tk_image = cv2_image_to_tkinter(swapped_frame, sizex2, sizey2)
+        swapped_image_label.configure(image=tk_image)
+        swapped_image_label.image = tk_image
+    root.after(30, frame_updater)
 def get_embedding(face_image):
     try:
         return face_analysers[0].get(face_image)
@@ -434,7 +548,7 @@ def get_embedding(face_image):
 
 def process_image(input_path, output_path, sw):
     image = cv2.imread(input_path)
-    bbox, image = face_analyser_thread(image,sw)
+    bbox, image, original_frame = face_analyser_thread(image,sw)
     try:
         test1 = checkbox_var.get() == 1
     except:
@@ -444,7 +558,7 @@ def process_image(input_path, output_path, sw):
     cv2.imwrite(output_path, image)
 
 def main():
-    global args, width, height, frame_index, face_analysers,frame_move, face_swappers, source_face, progress_var, target_embedding, count, frame_number, listik
+    global args, width, height, frame_index, face_analysers,frame_move, face_swappers, source_face, progress_var, target_embedding, count, frame_number, listik, frame, original_frame,swapped_frame
     face_swappers, face_analysers = prepare_swappers_and_analysers(args)
     input_face = cv2.imread(args['face'])
     source_face = sorted(face_analysers[0].get(input_face), key=lambda x: x.bbox[0])[0]
@@ -520,9 +634,9 @@ def main():
                         temp.append(ThreadWithReturnValue(target=face_analyser_thread, args=(frame,count%len(face_swappers))))
                         temp[-1].start()
                         while len(temp) >= int(args['threads']):
-                            bbox, frame = temp.pop(0).join()
+                            bbox, frame, original_frame = temp.pop(0).join()
                     else:
-                        bbox, frame = face_analyser_thread(get_nth_frame(cap, frame_index-1), count%len(face_swappers))
+                        bbox, frame, original_frame = face_analyser_thread(get_nth_frame(cap, frame_index-1), count%len(face_swappers))
                     if not args['cli']:
                         if show_bbox_var.get() == 1:
                             for i in bbox: 
@@ -545,7 +659,12 @@ def main():
                             listik = [count, frame_number,gpu_usage, vram_usage,gpu_memory_total]
                         else:
                             listik = [count, frame_number, 0, 0, 0]
-                        cv2.imshow('Face Detection', frame)
+                        swapped_frame = frame
+                        #cv2.imshow('Face Detection', frame)
+                    
+                    if not args['cli']:
+                        if show_external_swapped_preview_var.get() == 1:
+                            cv2.imshow('swapped frame', frame)
                     if not args['preview']:
                         out.write(frame)
                     if args['preview']:
@@ -586,7 +705,10 @@ def main():
                     cv2.imwrite(os.path.join(args['extract_output'], os.path.basename(file), f"frame_{count:05d}.png"), frame)
                 progressbar.update(1)
                 if not args['cli']:
-                    cv2.imshow('Face Detection', frame)
+                    if show_external_swapped_preview_var.get() == 1:
+                        cv2.imshow('swapped frame', frame)
+                #if not args['cli']:
+                    #cv2.imshow('Face Detection', frame)
                     #update_progress_bar(10, count, frame_number)
                 if args['preview']:
                     old_number = frame_index
@@ -631,6 +753,7 @@ try:
 
             root.after(300, update_gui, old_index)
         update_gui()
+        frame_updater()
         root.mainloop()
     else:
         main()
