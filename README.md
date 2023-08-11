@@ -1,5 +1,5 @@
 # FastFaceSwap
-just a little project for fast face swapping using one picture
+just a little project for fast face swapping using one picture. Now supports multigpu! (Almost, check the ending of readme)
 ## join my discord server https://discord.gg/hzrJBGPpgN
 ## requirements:
 -python 3.10
@@ -65,8 +65,16 @@ flags implemented:
 
 --codeformer-upscale: argument works with cli, the amount of upscale to apply to the frame using codeformer
 
+--optimization: choose the mode of the model: fp32 (default), fp16 (smaller, might be faster), int8 (doesnt work properly on old gpus, I dont know about new once, please test. On old gpus it uses cpu)
+
 example:
 ``` python main.py -f test.jpg -t "C:/Users/user/Desktop/video.mp4" -o output/test.mp4 --threads 12 ```
 
 
 fast enhancer is still in development, color correction is needed! Sorry for inconvenience, still training the model.
+
+# ABOUT MULTIGPU MODE
+
+To choose the gpu you want to run on: in globalsz.py, on the line with `select_gpu = None` you can make it `select_gpu = [0, 1]` or something similar (these numbers are id of gpus, starting from 0).
+ 
+Multigpu mode for now only supports just face swapping, **without the enhancer**!!! So if you want enhancer to work, for now select only one gpu.
