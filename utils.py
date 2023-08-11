@@ -13,6 +13,17 @@ from numpy import asarray
 import os
 from scipy.spatial import distance
 import psutil
+import globalsz
+from types import NoneType
+from gfpgan import GFPGANer
+if not globalsz.lowmem:
+    import tensorflow as tf
+if globalsz.args['experimental']:
+    try:
+        from imutils.video import FileVideoStream
+    except ImportError:
+        print("In the experimental mode, you have to pip install imutils")
+        exit()
 def is_video_file(filename):
     video_extensions = ['.mp4', '.avi', '.mkv', '.mov', '.webm']  # Add more extensions as needed
     _, ext = os.path.splitext(filename)
@@ -123,7 +134,12 @@ class GFPGAN_onnxruntime:
         output = output.astype(np.uint8)
         return output, inv_soft_mask
 def prepare():
-    import tensorflow as tf
+    physical_devices = tf.config.list_physical_devices('GPU')
+    for i in physical_devices:
+        tf.config.experimental.set_memory_growth(i, True)
+    #tf.config.experimental.set_virtual_device_configuration(
+    #        physical_devices[0],
+    #        [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=4096)])
     def mish_activation(x):
         return x * tf.keras.activations.tanh(tf.keras.activations.softplus(x))
     class Mish(tf.keras.layers.Layer):
@@ -132,6 +148,7 @@ def prepare():
         def call(self, inputs):
             return mish_activation(inputs)
     tf.keras.utils.get_custom_objects().update({'Mish': Mish})
+    
 def add_audio_from_video(video_path, audio_video_path, output_path):
     ffmpeg_cmd = [
         'ffmpeg',
@@ -253,7 +270,7 @@ def prepare_models(args):
 
 def upscale_image(image, generator ):
     image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-    image = cv2.resize(image, (256, 256))
+    image = cv2.resize(image, (512, 512))
     image = (image / 255.0) #- 1
     image = np.expand_dims(image, axis=0).astype(np.float32)
     #output = generator.run(None, {'input': image})
@@ -270,3 +287,119 @@ def compute_cosine_distance(emb1, emb2, allowed_distance):
     if d < allowed_distance:
         check = True
     return d, check
+
+def load_generator():
+    if isinstance(globalsz.generator, NoneType):
+        #model_path = 'generator.onnx'
+        #providers = rt.get_available_providers()
+        #generator = rt.InferenceSession(model_path, providers=providers)
+        globalsz.generator = tf.keras.models.load_model('complex_256_v7_stage3_12999.h5')#, custom_objects={'Mish': Mish})
+    return globalsz.generator
+arch = 'clean'
+channel_multiplier = 2
+model_path = 'GFPGANv1.4.pth'
+def load_restorer():
+    if isinstance(globalsz.restorer, NoneType):
+        globalsz.restorer = GFPGANer(
+            model_path=model_path,
+            upscale=0.8,
+            arch=arch,
+            channel_multiplier=channel_multiplier,
+            bg_upsampler=None
+        )
+    return globalsz.restorer
+
+def count_frames(video_path):
+    video = cv2.VideoCapture(video_path)
+    total_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+    video.release()
+    return total_frames
+
+def load_gfpganonnx():
+    if isinstance(globalsz.gfpgan_onnx_model, NoneType):
+        globalsz.gfpgan_onnx_model = GFPGAN_onnxruntime(model_path="GFPGANv1.4.onnx")
+    return globalsz.gfpgan_onnx_model
+
+def restorer_enhance(facer):
+    with globalsz.THREAD_SEMAPHORE:
+        cropped_faces, restored_faces, facex = load_restorer().enhance(
+            facer,
+            has_aligned=False,
+            only_center_face=False,
+            paste_back=True
+        )
+    return facex
+def create_cap():
+    global width, height
+    if not globalsz.args['experimental']:
+        if globalsz.args['camera_fix'] == True:
+            cap = cv2.VideoCapture(globalsz.args['target_path'], cv2.CAP_DSHOW)
+        else:
+            cap = cv2.VideoCapture(globalsz.args['target_path'])
+        if isinstance(globalsz.args['target_path'], int):
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, globalsz.width)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, globalsz.height)
+        fourcc = cv2.VideoWriter_fourcc(*'H265')
+        cap.set(cv2.CAP_PROP_FOURCC, fourcc)
+        # Get the video's properties
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    else:
+        '''cap = VideoCaptureThread(args['target_path'], 30)
+        if isinstance(args['target_path'], int):
+            show_warning()
+        fps = cap.fps
+        width = int(cap.width)
+        height = int(cap.height)'''
+        cap = cv2.VideoCapture(globalsz.args['target_path'])
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        cap.release()
+        del cap
+        cap = FileVideoStream(globalsz.args['target_path']).start()
+        time.sleep(1.0)
+    # Create a VideoWriter object to save the processed video
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    name = globalsz.args['output']
+    if isinstance(globalsz.args['target_path'], str):
+        name = f"{globalsz.args['output']}_temp.mp4"
+    out = cv2.VideoWriter(name, fourcc, fps, (width, height))
+    out.set(cv2.VIDEOWRITER_PROP_QUALITY, 100)
+    frame_number = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    return [cap, fps, width, height, out, name, globalsz.args['target_path'], frame_number]
+
+def create_batch_cap(file):
+    if not globalsz.args['experimental']:
+        if globalsz.args['camera_fix'] == True:
+            print("no need for camera_fix, there's not camera available in batch processing")
+        cap = cv2.VideoCapture(os.path.join(globalsz.args['target_path'], file))
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        fourcc = cv2.VideoWriter_fourcc(*'H265')
+        cap.set(cv2.CAP_PROP_FOURCC, fourcc)
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    else:
+        '''cap = VideoCaptureThread(args['target_path'], 30)
+        if isinstance(args['target_path'], int):
+            show_warning()
+        fps = cap.fps
+        width = int(cap.width)
+        height = int(cap.height)'''
+        cap = cv2.VideoCapture(os.path.join(globalsz.args['target_path'], file))
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        cap.release()
+        del cap
+        # yes, might overflow is too many files, well, it's experimental lol, what do you expect?
+        cap = FileVideoStream(os.path.join(globalsz.args['target_path'], file)).start() 
+        time.sleep(1.0)
+
+    # Create a VideoWriter object to save the processed video
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    name = os.path.join(globalsz.args['output'], f"{file}{globalsz.args['batch']}_temp.mp4")#f"{args['output']}_temp{args['batch']}.mp4"
+    out = cv2.VideoWriter(name, fourcc, fps, (width, height))
+    frame_number = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    return [cap, fps, width, height, out, name, file, frame_number]

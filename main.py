@@ -1,8 +1,11 @@
 import argparse
 import os
-background_color = "#0d0140"
-button_color = "#7b6fb0"
-text_color = "#bebdbf"
+import globalsz
+background_color = "#222831"
+button_color = "#0E8388"
+text_color = "#EEEEEE"
+tick_color = "#222831"
+tick_background_color = "#EEEEEE"
 parser = argparse.ArgumentParser()
 parser.add_argument('-f', '--face', help='use this face', dest='face', default="face.jpg")
 parser.add_argument('-t', '--target', help='replace this face. If camera, use integer like 0',default="0", dest='target_path')
@@ -32,7 +35,7 @@ args = {}
 for name, value in vars(parser.parse_args()).items():
     args[name] = value
 width, height = args['resolution'].split('x')
-width, height = int(width), int(height)
+globalsz.width, globalsz.height = int(width), int(height)
 if args['batch'] != "" and not args['batch'].endswith(".mp4"):
     args['batch'] += '.mp4'
 #if args['extract_target'] != '':
@@ -46,29 +49,18 @@ alpha = float(args['alpha'])
         #if args['batch'] == ''
 #just a fix, sometimes speeds up things
 os.environ['OMP_NUM_THREADS'] = '1'
+globalsz.args = args
 from types import NoneType
 from threading import Thread
 from tqdm import tqdm
 import numpy as np
-from gfpgan import GFPGANer
 import threading, os, torch, time, cv2
 from plugins.codeformer_app_cv2 import inference_app as codeformer
+globalsz.lowmem = args['lowmem']
 from utils import *
 if not args['lowmem']:
     import tensorflow as tf
-    physical_devices = tf.config.list_physical_devices('GPU')
-    for i in physical_devices:
-        tf.config.experimental.set_memory_growth(i, True)
-    #tf.config.experimental.set_virtual_device_configuration(
-    #        physical_devices[0],
-    #        [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=4096)])
     prepare()
-if args['experimental']:
-    try:
-        from imutils.video import FileVideoStream
-    except ImportError:
-        print("In the experimental mode, you have to pip install imutils")
-        exit()
 def select_face():
     global args, select_face_label
     filex = askopenfilename(title="Select a face")
@@ -146,12 +138,6 @@ if args['preview'] and isinstance(args['target_path'], int):
 if args['preview'] and args['cli']:
     print("Preview mode does not work with cli, so please use GUI")
     exit()
-THREAD_SEMAPHORE = threading.Semaphore()
-arch = 'clean'
-channel_multiplier = 2
-model_path = 'GFPGANv1.4.pth'
-restorer = None
-generator = None
 device = torch.device(0)
 if not args['nocuda']:
     gpu_memory_total = round(torch.cuda.get_device_properties(device).total_memory / 1024**3,2)  # Convert bytes to GB
@@ -159,26 +145,7 @@ adjust_x1 = 50
 adjust_y1 = 50
 adjust_x2 = 50
 adjust_y2 = 50
-def load_restorer():
-    global restorer
-    if isinstance(restorer, NoneType):
-        restorer = GFPGANer(
-            model_path=model_path,
-            upscale=0.8,
-            arch=arch,
-            channel_multiplier=channel_multiplier,
-            bg_upsampler=None
-        )
-    return restorer
 
-def load_generator():
-    global generator
-    if isinstance(generator, NoneType):
-        #model_path = 'generator.onnx'
-        #providers = rt.get_available_providers()
-        #generator = rt.InferenceSession(model_path, providers=providers)
-        generator = tf.keras.models.load_model('complex_256_v7_stage3_12999.h5')#, custom_objects={'Mish': Mish})
-    return generator
 def set_adjust_value():
     global adjust_x1, adjust_y1, adjust_x2, adjust_y2
     try:
@@ -196,25 +163,38 @@ def set_adjust_value():
     entry_y1.insert(0, adjust_y1)
     entry_x2.insert(0, adjust_x2)
     entry_y2.insert(0, adjust_y2)
-def count_frames(video_path):
-    video = cv2.VideoCapture(video_path)
-    total_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
-    video.release()
-    return total_frames
 
 
 if not args['cli']:
     root = tk.Tk()
+    
+    style = ttk.Style()
+    # Set the theme to "clam"
+    style.theme_use("clam")
+
+    # Configure the Checkbutton style
+    style.configure("TCheckbutton", 
+                    indicatorbackground=tick_background_color, 
+                    indicatorforeground=tick_color,
+                    background=background_color, 
+                    foreground=text_color)
+
+    # Ensure the Checkbutton doesn't change appearance when active
+    style.map("TCheckbutton", 
+            indicatorbackground=[("active", tick_background_color)], 
+            indicatorforeground=[("active", tick_color)],
+            background=[("active", background_color)], 
+            foreground=[("active", text_color)])
     if not args['preview']:
-        root.geometry("300x640")
+        root.geometry("300x650")
     else:
         root.geometry("300x770")
     root.configure(bg=background_color)
     faceswapper_checkbox_var = tk.IntVar(value=1)
-    faceswapper_checkbox = tk.Checkbutton(root, text="Face swapper", variable=faceswapper_checkbox_var, fg=text_color, bg=background_color)
+    faceswapper_checkbox = ttk.Checkbutton(root, text="Face swapper", variable=faceswapper_checkbox_var, style="TCheckbutton")
     faceswapper_checkbox.pack()
     checkbox_var = tk.IntVar()
-    checkbox = tk.Checkbutton(root, text="Face enhancer", variable=checkbox_var, fg=text_color, bg=background_color)
+    checkbox = ttk.Checkbutton(root, text="Face enhancer", variable=checkbox_var, style="TCheckbutton")
     checkbox.pack()
     enhancer_choice = tk.StringVar(value='fastface enhancer')
     choices = ['fastface enhancer', 'gfpgan', 'codeformer', 'gfpgan onnx']
@@ -227,7 +207,7 @@ if not args['cli']:
 
 
     show_bbox_var = tk.IntVar()
-    show_bbox = tk.Checkbutton(root, text="draw bounding box around faces", variable=show_bbox_var, fg=text_color, bg=background_color)
+    show_bbox = ttk.Checkbutton(root, text="draw bounding box around faces", variable=show_bbox_var, style="TCheckbutton")
     show_bbox.pack()
     label = tk.Label(root, text="bounding box adjustment", fg=text_color, bg=background_color)
     label.pack()
@@ -286,14 +266,14 @@ if not args['cli']:
     alpha_slider.set(1.0)
     
     codeformer_skip_if_no_face_var = tk.IntVar()
-    codeformer_skip_if_no_face = tk.Checkbutton(root, text="Skip codeformer if not face is found", variable=codeformer_skip_if_no_face_var, fg=text_color, bg=background_color)
+    codeformer_skip_if_no_face = ttk.Checkbutton(root, text="Skip codeformer if not face is found", variable=codeformer_skip_if_no_face_var, style="TCheckbutton")
     codeformer_skip_if_no_face.pack()
     codeformer_upscale_face_var = tk.IntVar()
-    codeformer_upscale_face = tk.Checkbutton(root, text="Upscale face using codeformer", variable=codeformer_upscale_face_var, fg=text_color, bg=background_color)
+    codeformer_upscale_face = ttk.Checkbutton(root, text="Upscale face using codeformer", variable=codeformer_upscale_face_var, style="TCheckbutton")
     codeformer_upscale_face.pack()
     codeformer_upscale_face_var.set(1)
     codeformer_enhance_background_var = tk.IntVar()
-    codeformer_enhance_background = tk.Checkbutton(root, text="Enhance background using codeformer", variable=codeformer_enhance_background_var, fg=text_color, bg=background_color)
+    codeformer_enhance_background = ttk.Checkbutton(root, text="Enhance background using codeformer", variable=codeformer_enhance_background_var, style="TCheckbutton")
     codeformer_enhance_background.pack()
     codeformer_upscale_amount_value = 1
     def codeformer_upscale_amount_move(value):
@@ -332,7 +312,7 @@ if not args['cli']:
         label.pack()
         slider = tk.Scale(root, from_=1, to=frame_amount, fg=text_color, bg=background_color,orient=tk.HORIZONTAL, command=on_slider_move)
         slider.pack()
-        frame_count_label = tk.Label(root, text=f"total frames: {frame_amount}")
+        frame_count_label = tk.Label(root, text=f"total frames: {frame_amount}", fg=text_color, bg=background_color)
         frame_count_label.pack(fill=tk.X)
         button_width = root.winfo_width() // 2
         frame_back_button = tk.Button(root, text='<',bg=button_color, fg=text_color, width=button_width, command=lambda: edit_index(-1))
@@ -366,97 +346,8 @@ if not args['cli']:
             usage_label1['text'] = f"cpu usage: {cpu_usage}%|RAM usage: {ram_usage}/{total_ram}GB"
         #progress_var.set(text=progress_text)
         root.update()
-gfpgan_onnx_model = None
-def load_gfpganonnx():
-    global gfpgan_onnx_model
-    if isinstance(gfpgan_onnx_model, NoneType):
-        gfpgan_onnx_model = GFPGAN_onnxruntime(model_path="GFPGANv1.4.onnx")
-    return gfpgan_onnx_model
 
-def restorer_enhance(facer):
-    with THREAD_SEMAPHORE:
-        cropped_faces, restored_faces, facex = load_restorer().enhance(
-            facer,
-            has_aligned=False,
-            only_center_face=False,
-            paste_back=True
-        )
-    return facex
 
-def create_cap():
-    global width, height
-    if not args['experimental']:
-        if args['camera_fix'] == True:
-            cap = cv2.VideoCapture(args['target_path'], cv2.CAP_DSHOW)
-        else:
-            cap = cv2.VideoCapture(args['target_path'])
-        if isinstance(args['target_path'], int):
-            cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
-        fourcc = cv2.VideoWriter_fourcc(*'H265')
-        cap.set(cv2.CAP_PROP_FOURCC, fourcc)
-        # Get the video's properties
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    else:
-        '''cap = VideoCaptureThread(args['target_path'], 30)
-        if isinstance(args['target_path'], int):
-            show_warning()
-        fps = cap.fps
-        width = int(cap.width)
-        height = int(cap.height)'''
-        cap = cv2.VideoCapture(args['target_path'])
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        cap.release()
-        del cap
-        cap = FileVideoStream(args['target_path']).start()
-        time.sleep(1.0)
-    # Create a VideoWriter object to save the processed video
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    name = args['output']
-    if isinstance(args['target_path'], str):
-        name = f"{args['output']}_temp.mp4"
-    out = cv2.VideoWriter(name, fourcc, fps, (width, height))
-    out.set(cv2.VIDEOWRITER_PROP_QUALITY, 100)
-    frame_number = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    return [cap, fps, width, height, out, name, args['target_path'], frame_number]
-
-def create_batch_cap(file):
-    if not args['experimental']:
-        if args['camera_fix'] == True:
-            print("no need for camera_fix, there's not camera available in batch processing")
-        cap = cv2.VideoCapture(os.path.join(args['target_path'], file))
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        fourcc = cv2.VideoWriter_fourcc(*'H265')
-        cap.set(cv2.CAP_PROP_FOURCC, fourcc)
-        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    else:
-        '''cap = VideoCaptureThread(args['target_path'], 30)
-        if isinstance(args['target_path'], int):
-            show_warning()
-        fps = cap.fps
-        width = int(cap.width)
-        height = int(cap.height)'''
-        cap = cv2.VideoCapture(os.path.join(args['target_path'], file))
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        cap.release()
-        del cap
-        # yes, might overflow is too many files, well, it's experimental lol, what do you expect?
-        cap = FileVideoStream(os.path.join(args['target_path'], file)).start() 
-        time.sleep(1.0)
-
-    # Create a VideoWriter object to save the processed video
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    name = os.path.join(args['output'], f"{file}{args['batch']}_temp.mp4")#f"{args['output']}_temp{args['batch']}.mp4"
-    out = cv2.VideoWriter(name, fourcc, fps, (width, height))
-    frame_number = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    return [cap, fps, width, height, out, name, file, frame_number]
 def face_analyser_thread(frame):
     global alpha
     if not args['cli']:
@@ -722,6 +613,7 @@ def main():
     exit()
 if args['batch'] != '':
     os.makedirs(args['output'], exist_ok=True)
+globalsz.args = args
 if not args['cli']:
     listik = [0, 1, 0, 0, 0]
     threading.Thread(target=main).start()
