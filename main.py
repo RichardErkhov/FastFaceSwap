@@ -610,7 +610,7 @@ def main():
         
         
     print("Processing finished, you may close the window now")
-    exit()
+    root.destroy()
 if args['batch'] != '':
     os.makedirs(args['output'], exist_ok=True)
 globalsz.args = args
@@ -631,3 +631,4 @@ if not args['cli']:
     root.mainloop()
 else:
     main()
+exit()

@@ -16,6 +16,7 @@ import psutil
 import globalsz
 from types import NoneType
 from gfpgan import GFPGANer
+import sys
 if not globalsz.lowmem:
     import tensorflow as tf
 if globalsz.args['experimental']:
@@ -24,6 +25,11 @@ if globalsz.args['experimental']:
     except ImportError:
         print("In the experimental mode, you have to pip install imutils")
         exit()
+        
+def restart_program():
+    """Restarts the current program."""
+    python = sys.executable
+    os.execl(python, python, *sys.argv)
 def is_video_file(filename):
     video_extensions = ['.mp4', '.avi', '.mkv', '.mov', '.webm']  # Add more extensions as needed
     _, ext = os.path.splitext(filename)
