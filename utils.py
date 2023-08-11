@@ -17,6 +17,10 @@ import globalsz
 from types import NoneType
 from gfpgan import GFPGANer
 import sys
+import torch
+from swapperfp16 import get_model
+import requests
+import tqdm
 if not globalsz.lowmem:
     import tensorflow as tf
 if globalsz.args['experimental']:
@@ -409,3 +413,109 @@ def create_batch_cap(file):
     out = cv2.VideoWriter(name, fourcc, fps, (width, height))
     frame_number = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     return [cap, fps, width, height, out, name, file, frame_number]
+
+def get_gpu_amount():
+    num_devices = -1
+    if torch.cuda.is_available() and globalsz.cuda:
+        num_devices = torch.cuda.device_count()
+    return num_devices
+
+def create_configs_for_onnx():
+    listx = []
+    gpu_amount = get_gpu_amount()
+    if gpu_amount == -1:
+        return ['CPUExecutionProvider']
+    gpu_list = list(range(gpu_amount))
+    if not globalsz.select_gpu == None:
+        gpu_list = globalsz.select_gpu
+    for idx in gpu_list:
+        providers = [('CUDAExecutionProvider', {
+            'device_id': idx,
+        'gpu_mem_limit': 12 * 1024 * 1024 * 1024,
+        'gpu_external_alloc': 0,
+        'gpu_external_free': 0,
+        'gpu_external_empty_cache': 1,
+        'cudnn_conv_algo_search': 'EXHAUSTIVE',
+        'cudnn_conv1d_pad_to_nc1d': 1,
+        'arena_extend_strategy': 'kNextPowerOfTwo',
+        'do_copy_in_default_stream': 1,
+        'enable_cuda_graph': 0,
+        'cudnn_conv_use_max_workspace': 1,
+        'tunable_op_enable': 1,
+        'enable_skip_layer_norm_strict_mode': 1,
+        'tunable_op_tuning_enable': 1
+        }),'CPUExecutionProvider'
+        ]
+        listx.append(providers)
+    return listx
+
+def get_sess_options():
+    sess_options = rt.SessionOptions()
+    sess_options.intra_op_num_threads = 1
+    sess_options.graph_optimization_level = rt.GraphOptimizationLevel.ORT_ENABLE_ALL#rt.GraphOptimizationLevel.ORT_DISABLE_ALL
+    sess_options.execution_mode = rt.ExecutionMode.ORT_SEQUENTIAL
+    sess_options.execution_order = rt.ExecutionOrder.PRIORITY_BASED
+    return sess_options
+
+def prepare_models(args):
+    providers = rt.get_available_providers()
+    sess_options = rt.SessionOptions()
+    sess_options.intra_op_num_threads = 8
+    sess_options2 = rt.SessionOptions()
+    sess_options2.graph_optimization_level = rt.GraphOptimizationLevel.ORT_DISABLE_ALL #Varying with all the options
+    sess_options.graph_optimization_level = rt.GraphOptimizationLevel.ORT_DISABLE_ALL #Varying with all the options
+    if not args['no_faceswap']:
+        face_swapper = insightface.model_zoo.get_model("inswapper_128.onnx", session_options=sess_options, providers=providers)
+    else:
+        face_swapper = None
+    if args['lowmem']:
+        face_analyser = insightface.app.FaceAnalysis(name='buffalo_l', providers=providers, session_options=sess_options2)
+        face_analyser.prepare(ctx_id=0, det_size=(256, 256))
+    else:
+        face_analyser = insightface.app.FaceAnalysis(name='buffalo_l', providers=providers)
+        face_analyser.prepare(ctx_id=0, det_size=(640, 640))
+    #face_analyser.models.pop("landmark_3d_68")
+    #face_analyser.models.pop("landmark_2d_106")
+    #face_analyser.models.pop("genderage")
+    return face_swapper, face_analyser
+
+def prepare_swappers_and_analysers(args):
+    provider_list = create_configs_for_onnx()
+    sess_options = get_sess_options()
+    swappers = []
+    analysers = []
+    for idx, providers in enumerate(provider_list):
+        if not args['no_faceswap']:
+            if args['optimization'] == "fp16":
+                swappers.append(get_model("inswapper_128.fp16.onnx", session_options=sess_options, providers=providers))
+            elif args['optimization'] == "int8":
+                if "CUDAExecutionProvider" in provider_list:
+                    print("int8 may not work on gpu properly and might load your cpu instead")
+                swappers.append(get_model("inswapper_128.quant.onnx", session_options=sess_options, providers=providers))
+            else:
+                swappers.append(insightface.model_zoo.get_model("inswapper_128.onnx", session_options=sess_options, providers=providers))
+        else:
+            swappers.append(None)
+
+        analysers.append(insightface.app.FaceAnalysis(name='buffalo_l', providers=providers, session_options=sess_options))
+        analysers[idx].prepare(ctx_id=0, det_size=(256, 256)) #640, 640
+    return swappers, analysers
+
+def download(link, filename):
+    response = requests.get(link, stream=True)
+    total_size = int(response.headers.get('content-length', 0))
+    block_size = 1024*16  # 1 KB
+    progress_bar = tqdm.tqdm(total=total_size, unit='B', unit_scale=True)
+
+    with open(filename, 'wb') as file:
+        for data in response.iter_content(block_size):
+            progress_bar.update(len(data))
+            file.write(data)
+
+    progress_bar.close()
+
+def check_or_download(filename):
+    exists = os.path.exists(filename)
+    if not exists:
+        download(f"https://github.com/RichardErkhov/FastFaceSwap/releases/download/model/{filename}", filename)
+    

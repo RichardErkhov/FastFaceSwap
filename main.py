@@ -31,6 +31,7 @@ parser.add_argument('--codeformer-face-upscale', help='works only in cli. Upscal
 parser.add_argument('--codeformer-background-enhance', help='works only in cli. Enhance the background using codeformer', dest='codeformer_background_enhance', action='store_true')
 parser.add_argument('--codeformer-upscale', help='works with cli, the amount of upscale to apply to the frame using codeformer', default=1, dest='codeformer_upscale')
 parser.add_argument('--select-face', help='change the face you want, not all faces. After the argument add the path to the image with face from the video', dest='selective', default='')
+parser.add_argument('--optimization', help='choose the mode of the model: fp32 (default), fp16 (smaller, might be faster), int8 (doesnt work properly on old gpus, I dont know about new once, please test. On old gpus it uses cpu)', dest='optimization', default='fp32', choices=['fp32','fp16', 'int8'])
 args = {}
 for name, value in vars(parser.parse_args()).items():
     args[name] = value
@@ -52,12 +53,12 @@ os.environ['OMP_NUM_THREADS'] = '1'
 globalsz.args = args
 from types import NoneType
 from threading import Thread
-from tqdm import tqdm
 import numpy as np
 import threading, os, torch, time, cv2
 from plugins.codeformer_app_cv2 import inference_app as codeformer
 globalsz.lowmem = args['lowmem']
 from utils import *
+from tqdm import tqdm
 if not args['lowmem']:
     import tensorflow as tf
     prepare()
@@ -138,8 +139,8 @@ if args['preview'] and isinstance(args['target_path'], int):
 if args['preview'] and args['cli']:
     print("Preview mode does not work with cli, so please use GUI")
     exit()
-device = torch.device(0)
 if not args['nocuda']:
+    device = torch.device(0)
     gpu_memory_total = round(torch.cuda.get_device_properties(device).total_memory / 1024**3,2)  # Convert bytes to GB
 adjust_x1 = 50
 adjust_y1 = 50
@@ -348,7 +349,7 @@ if not args['cli']:
         root.update()
 
 
-def face_analyser_thread(frame):
+def face_analyser_thread(frame, sw):
     global alpha
     if not args['cli']:
         test1 = alpha != 0
@@ -356,7 +357,7 @@ def face_analyser_thread(frame):
         test1 = args['alpha'] != 0
     if test1:        
         original_frame = frame
-        faces = face_analyser.get(frame)
+        faces = face_analysers[sw].get(frame)
         bboxes = []
         for face in faces:
             if args['selective'] != '':
@@ -371,7 +372,7 @@ def face_analyser_thread(frame):
                 if faceswapper_checkbox_var.get() == True:
                     ttest1=True
             if not args['no_faceswap'] and (ttest1 == True or args['cli']):
-                frame = face_swapper.get(frame, face, source_face, paste_back=True)
+                frame = face_swappers[sw].get(frame, face, source_face, paste_back=True)
             try:
                 test1 = checkbox_var.get() == 1 
                 test2 = not enhancer_choice.get() == "codeformer"
@@ -427,13 +428,13 @@ def face_analyser_thread(frame):
 
 def get_embedding(face_image):
     try:
-        return face_analyser.get(face_image)
+        return face_analysers[0].get(face_image)
     except IndexError:
         return None
 
-def process_image(input_path, output_path):
+def process_image(input_path, output_path, sw):
     image = cv2.imread(input_path)
-    bbox, image = face_analyser_thread(image)
+    bbox, image = face_analyser_thread(image,sw)
     try:
         test1 = checkbox_var.get() == 1
     except:
@@ -443,10 +444,10 @@ def process_image(input_path, output_path):
     cv2.imwrite(output_path, image)
 
 def main():
-    global args, width, height, frame_index, face_analyser,frame_move, face_swapper, source_face, progress_var, target_embedding, count, frame_number, listik
-    face_swapper, face_analyser = prepare_models(args)
+    global args, width, height, frame_index, face_analysers,frame_move, face_swappers, source_face, progress_var, target_embedding, count, frame_number, listik
+    face_swappers, face_analysers = prepare_swappers_and_analysers(args)
     input_face = cv2.imread(args['face'])
-    source_face = sorted(face_analyser.get(input_face), key=lambda x: x.bbox[0])[0]
+    source_face = sorted(face_analysers[0].get(input_face), key=lambda x: x.bbox[0])[0]
     target_embedding = None
     gpu_usage = 0
     vram_usage = 0
@@ -471,7 +472,7 @@ def main():
                 listik = [it, image_amount, gpu_usage, vram_usage, gpu_memory_total]
             else:
                 listik = [it, image_amount, 0, 0, 0]
-            threading.Thread(target=process_image, args=(i[0], i[1])).start()
+            threading.Thread(target=process_image, args=(i[0], i[1], it%len(face_swappers))).start()
             while threading.active_count() > (int(args['threads']) + original_threads):
                 time.sleep(0.01)
         while threading.active_count() > original_threads:
@@ -503,7 +504,7 @@ def main():
                         ret, frame = cap.read()
                         if not ret:
                             break
-                    temp.append(ThreadWithReturnValue(target=face_analyser_thread, args=(frame,)))
+                    temp.append(ThreadWithReturnValue(target=face_analyser_thread, args=(frame,count%len(face_swappers))))
                     temp[-1].start()
             while True:
                 try:
@@ -516,12 +517,12 @@ def main():
                             ret, frame = cap.read()
                             if not ret:
                                 break
-                        temp.append(ThreadWithReturnValue(target=face_analyser_thread, args=(frame,)))
+                        temp.append(ThreadWithReturnValue(target=face_analyser_thread, args=(frame,count%len(face_swappers))))
                         temp[-1].start()
                         while len(temp) >= int(args['threads']):
                             bbox, frame = temp.pop(0).join()
                     else:
-                        bbox, frame = face_analyser_thread(get_nth_frame(cap, frame_index-1))
+                        bbox, frame = face_analyser_thread(get_nth_frame(cap, frame_index-1), count%len(face_swappers))
                     if not args['cli']:
                         if show_bbox_var.get() == 1:
                             for i in bbox: 
@@ -611,24 +612,30 @@ def main():
         
     print("Processing finished, you may close the window now")
     root.destroy()
+    os._exit(0)
 if args['batch'] != '':
     os.makedirs(args['output'], exist_ok=True)
 globalsz.args = args
-if not args['cli']:
-    listik = [0, 1, 0, 0, 0]
-    threading.Thread(target=main).start()
-    def update_gui(old_index=0):
-        global frame_index
-        update_progress_bar(7, listik[0], listik[1], listik[2], listik[3], listik[4])
-        
-        if args['preview']:
-            if old_index != frame_index:  
-                slider.set(frame_index)
-                old_index = frame_index
+try:
+    if not args['cli']:
+        listik = [0, 1, 0, 0, 0]
+        threading.Thread(target=main).start()
+        def update_gui(old_index=0):
+            global frame_index
+            update_progress_bar(7, listik[0], listik[1], listik[2], listik[3], listik[4])
+            
+            if args['preview']:
+                if old_index != frame_index:  
+                    slider.set(frame_index)
+                    old_index = frame_index
 
-        root.after(300, update_gui, old_index)
-    update_gui()
-    root.mainloop()
-else:
-    main()
-exit()
+            root.after(300, update_gui, old_index)
+        update_gui()
+        root.mainloop()
+    else:
+        main()
+except Exception as e:
+    print(e)
+    os._exit(1)
+finally:
+    os._exit(0)
