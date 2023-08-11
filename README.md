@@ -76,5 +76,7 @@ fast enhancer is still in development, color correction is needed! Sorry for inc
 # ABOUT MULTIGPU MODE
 
 To choose the gpu you want to run on: in globalsz.py, on the line with `select_gpu = None` you can make it `select_gpu = [0, 1]` or something similar (these numbers are id of gpus, starting from 0).
- 
+
+to use all gpus, `select_gpu = None`
+
 Multigpu mode for now only supports just face swapping, **without the enhancer**!!! So if you want enhancer to work, for now select only one gpu.
