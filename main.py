@@ -681,7 +681,7 @@ def main():
                 except KeyboardInterrupt:
                     break
             for i in temp:
-                bbox, frame = i.join()
+                bbox, frame, original_frame = i.join()
                 if not args['cli']:
                     if show_bbox_var.get() == 1:
                         for i in bbox: 
