@@ -18,11 +18,15 @@ from types import NoneType
 from gfpgan import GFPGANer
 import sys
 import torch
-if not globalsz.args['nocuda']:
-    torch.backends.cudnn.benchmark = True
+#if not globalsz.args['nocuda']:
+#    torch.backends.cudnn.benchmark = True
 from swapperfp16 import get_model
 import requests
 import tqdm
+from basicsr.archs.rrdbnet_arch import RRDBNet
+from basicsr.utils.download_util import load_file_from_url
+from realesrgan import RealESRGANer
+from realesrgan.archs.srvgg_arch import SRVGGNetCompact
 if not globalsz.lowmem:
     import tensorflow as tf
 if globalsz.args['experimental']:
@@ -307,6 +311,70 @@ def load_generator():
         #generator = rt.InferenceSession(model_path, providers=providers)
         globalsz.generator = tf.keras.models.load_model('complex_256_v7_stage3_12999.h5')#, custom_objects={'Mish': Mish})
     return globalsz.generator
+
+def load_read_esrgan():
+    model_path = None
+    if isinstance(globalsz.realeasrgan_enhancer, NoneType):
+        model_name = globalsz.realeasrgan_model
+        """Load the appropriate model based on the model name."""
+        # determine models according to model names
+        if model_name == 'RealESRGAN_x4plus':  # x4 RRDBNet model
+            model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=4)
+            netscale = 4
+            file_url = ['https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth']
+        elif model_name == 'RealESRNet_x4plus':  # x4 RRDBNet model
+            model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=4)
+            netscale = 4
+            file_url = ['https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.1/RealESRNet_x4plus.pth']
+        elif model_name == 'RealESRGAN_x4plus_anime_6B':  # x4 RRDBNet model with 6 blocks
+            model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=6, num_grow_ch=32, scale=4)
+            netscale = 4
+            file_url = ['https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.2.4/RealESRGAN_x4plus_anime_6B.pth']
+        elif model_name == 'RealESRGAN_x2plus':  # x2 RRDBNet model
+            model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=2)
+            netscale = 2
+            file_url = ['https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth']
+        elif model_name == 'realesr-animevideov3':  # x4 VGG-style model (XS size)
+            model = SRVGGNetCompact(num_in_ch=3, num_out_ch=3, num_feat=64, num_conv=16, upscale=4, act_type='prelu')
+            netscale = 4
+            file_url = ['https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesr-animevideov3.pth']
+        elif model_name == 'realesr-general-x4v3':  # x4 VGG-style model (S size)
+            model = SRVGGNetCompact(num_in_ch=3, num_out_ch=3, num_feat=64, num_conv=32, upscale=4, act_type='prelu')
+            netscale = 4
+            file_url = [
+                'https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesr-general-wdn-x4v3.pth',
+                'https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesr-general-x4v3.pth'
+            ]
+
+        # determine model paths
+        if not model_path:
+            model_path = os.path.join('weights', model_name + '.pth')
+            if not os.path.isfile(model_path):
+                ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+                for url in file_url:
+                    model_path = load_file_from_url(url=url, model_dir=os.path.join(ROOT_DIR, 'weights'), progress=True)
+        
+        TILE = 0
+        TILE_PAD = 10
+        PRE_PAD = 0
+        # Initialize restorer
+        globalsz.realeasrgan_enhancer = RealESRGANer(
+            scale=netscale,
+            model_path=model_path,
+            model=model,
+            tile=TILE,
+            tile_pad=TILE_PAD,
+            pre_pad=PRE_PAD,
+            half= globalsz.realesrgan_fp16,
+            device=torch.device(f"cuda:{globalsz.select_realesrgan_gpu}")
+        )
+
+    return globalsz.realeasrgan_enhancer
+
+def realesrgan_enhance(image):
+    with globalsz.realesrgan_lock:
+        output, _ = load_read_esrgan().enhance(image, outscale=globalsz.realesrgan_outscale)
+    return output
 arch = 'clean'
 channel_multiplier = 2
 model_path = 'GFPGANv1.4.pth'
@@ -317,7 +385,8 @@ def load_restorer():
             upscale=0.8,
             arch=arch,
             channel_multiplier=channel_multiplier,
-            bg_upsampler=None
+            bg_upsampler=None,
+            device = torch.device(f"cuda:{globalsz.select_gfpgan_gpu}")
         )
     return globalsz.restorer
 
@@ -428,8 +497,8 @@ def create_configs_for_onnx():
     if gpu_amount == -1:
         return ['CPUExecutionProvider']
     gpu_list = list(range(gpu_amount))
-    if not globalsz.select_gpu == None:
-        gpu_list = globalsz.select_gpu
+    if not globalsz.select_face_swapper_gpu == None:
+        gpu_list = globalsz.select_face_swapper_gpu
     for idx in gpu_list:
         providers = [('CUDAExecutionProvider', {
             'device_id': idx,

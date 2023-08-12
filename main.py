@@ -17,7 +17,7 @@ parser.add_argument('-res', '--resolution', help='camera resolution, given in fo
 parser.add_argument('--threads', help='amount of gpu threads',default="4", dest='threads')
 parser.add_argument('--image', help='Include if the target is image', dest='image', action='store_true')
 parser.add_argument('--cli', help='run in cli mode, turns off preview and now accepts switch of face enhancer from the command', dest='cli', action='store_true')
-parser.add_argument('--face-enhancer', help='face enhancer, choice works only in cli mode. In gui mode, you need to choose from gui', dest='face_enhancer', default='none', choices=['none','gfpgan', 'ffe', 'codeformer', 'gpfgan_onnx'])
+parser.add_argument('--face-enhancer', help='face enhancer, choice works only in cli mode. In gui mode, you need to choose from gui', dest='face_enhancer', default='none', choices=['none','gfpgan', 'ffe', 'codeformer', 'gpfgan_onnx', 'real_esrgan'])
 parser.add_argument('--no-face-swapper', '--no-swapper', help='disables face swapper', dest='no_faceswap', action='store_true')
 parser.add_argument('--preview-mode', help='experimental: preview mode', dest='preview', action='store_true')
 parser.add_argument('--experimental', help='experimental mode, enables features like buffered video reader', dest='experimental', action='store_true')
@@ -209,9 +209,9 @@ if not args['cli']:
     checkbox.grid(row=1, column=0)
     
     enhancer_choice = tk.StringVar(value='fastface enhancer')
-    choices = ['fastface enhancer', 'gfpgan', 'codeformer', 'gfpgan onnx']
+    choices = ['fastface enhancer', 'gfpgan', 'codeformer', 'gfpgan onnx', "real esrgan"]
 
-    if not args['lowmem']:
+    if args['lowmem']:
         choices.remove('fastface enhancer')
 
     dropdown = ttk.OptionMenu(left_frame, enhancer_choice, enhancer_choice.get(), *choices)
@@ -475,6 +475,8 @@ def face_analyser_thread(frame, sw):
                             facex = restorer_enhance(facer)
                         elif enhancer_choice.get() == "gfpgan onnx":
                             facex, _ = load_gfpganonnx().forward(facer)
+                        elif enhancer_choice.get() == "real esrgan":
+                            facex = realesrgan_enhance(facer)
                     else:
                         if args['face_enhancer'] == 'gfpgan':
                             facex = restorer_enhance(facer)
@@ -482,6 +484,8 @@ def face_analyser_thread(frame, sw):
                             facex = upscale_image(facer, load_generator())
                         elif args['face_enhancer'] == "gpfgan_onnx":
                             facex, _ = load_gfpganonnx().forward(facer)
+                        elif args['face_enhancer'] == "real_esrgan":
+                            facex = realesrgan_enhance(facer)
                     facex = cv2.resize(facex, ((x2-x1), (y2-y1)))
                     frame[y1:y2, x1:x2] = facex
                 except Exception as e:
@@ -525,7 +529,7 @@ def cv2_image_to_tkinter(cv2_image, target_width, target_height):
         height = target_height
         width = int(target_height * image_aspect)
 
-    pil_image_resized = pil_image.resize((width, height), Image.ANTIALIAS)
+    pil_image_resized = pil_image.resize((width, height), Image.Resampling.LANCZOS)
     
     return ImageTk.PhotoImage(pil_image_resized)
 def frame_updater():
