@@ -29,6 +29,12 @@ from realesrgan import RealESRGANer
 from realesrgan.archs.srvgg_arch import SRVGGNetCompact
 if not globalsz.lowmem:
     import tensorflow as tf
+    physical_devices = tf.config.list_physical_devices('GPU')
+    for i in physical_devices:
+        tf.config.experimental.set_memory_growth(i, True)
+        
+        tf.config.experimental.set_virtual_device_configuration(
+                i,[tf.config.experimental.VirtualDeviceConfiguration(memory_limit=4096)])
 if globalsz.args['experimental']:
     try:
         from imutils.video import FileVideoStream
@@ -150,12 +156,6 @@ class GFPGAN_onnxruntime:
         output = output.astype(np.uint8)
         return output, inv_soft_mask
 def prepare():
-    physical_devices = tf.config.list_physical_devices('GPU')
-    for i in physical_devices:
-        tf.config.experimental.set_memory_growth(i, True)
-    #tf.config.experimental.set_virtual_device_configuration(
-    #        physical_devices[0],
-    #        [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=4096)])
     def mish_activation(x):
         return x * tf.keras.activations.tanh(tf.keras.activations.softplus(x))
     class Mish(tf.keras.layers.Layer):
