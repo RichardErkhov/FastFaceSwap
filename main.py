@@ -1,3 +1,4 @@
+import time
 import argparse
 import os
 import globalsz
@@ -34,6 +35,7 @@ parser.add_argument('--codeformer-background-enhance', help='works only in cli. 
 parser.add_argument('--codeformer-upscale', help='works with cli, the amount of upscale to apply to the frame using codeformer', default=1, dest='codeformer_upscale')
 parser.add_argument('--select-face', help='change the face you want, not all faces. After the argument add the path to the image with face from the video', dest='selective', default='')
 parser.add_argument('--optimization', help='choose the mode of the model: fp32 (default), fp16 (smaller, might be faster), int8 (doesnt work properly on old gpus, I dont know about new once, please test. On old gpus it uses cpu)', dest='optimization', default='fp32', choices=['fp32','fp16', 'int8'])
+parser.add_argument('--fast-load', help='try to load as fast as possible, may be delays in the work, shouldnt affect the speed of processing', dest='fastload', action='store_true')
 args = {}
 for name, value in vars(parser.parse_args()).items():
     args[name] = value
@@ -57,17 +59,63 @@ swapped_frame = None
 os.environ['OMP_NUM_THREADS'] = '1'
 globalsz.args = args
 from types import NoneType
-from threading import Thread
-import numpy as np
-import threading, os, torch, time, cv2
-from plugins.codeformer_app_cv2 import inference_app as codeformer
+import threading, os, time
+if not args['fastload']:
+    from plugins.codeformer_app_cv2 import inference_app as codeformer
 globalsz.lowmem = args['lowmem']
 from utils import *
+class simulate:
+    def __init__(self, bbox, kps, det_score, embedding, normed_embedding):
+        self.bbox = bbox
+        self.kps = kps
+        self.det_score = det_score
+        self.embedding=embedding
+        self.normed_embedding = normed_embedding
+
+def get_source_face():
+    if isinstance(globalsz.source_face, NoneType):
+        globalsz.source_face = sorted(face_analysers[0].get(cv2.imread(args['face'])), key=lambda x: x.bbox[0])[0]
+    return globalsz.source_face
+def start_swapper(sw):
+    import pickle
+    with open('ll.pkl', 'rb') as file:
+        loaded_data = pickle.load(file)
+    frame = face_swappers[sw].get(cv2.imread(args['face']), loaded_data, get_source_face(), paste_back=True)
+    return frame
+def start_analyser(sw):
+    x = sorted(face_analysers[sw].get(cv2.imread(args['face'])), key=lambda x: x.bbox[0])[0]
+    return x
+def startx():
+    global face_swappers, face_analysers
+    face_swappers, face_analysers = prepare_swappers_and_analysers(args)
+    if not args['cli']:
+        threads = []
+        #threads_2 = []
+        for i in range(len(face_swappers)):
+            t = threading.Thread(target=start_swapper, args=[i,])
+            t.start()
+            threads.append(t)
+        #for i in range(len(face_swappers)):
+            t = threading.Thread(target=start_analyser, args=[i,])
+            t.start()
+            threads.append(t)
+        #for i in threads:
+        #    i.join()
+        return threads
+if args['fastload'] and args['cli']:
+    tx = threading.Thread(target=startx)
+    tx.start()
+elif args['fastload'] and not args['cli']:
+    tx = startx()
+
+#    tx, tx2 = startx()
 from tqdm import tqdm
 from PIL import Image, ImageTk
 if not args['lowmem']:
-    import tensorflow as tf
-    prepare()
+    if not args['fastload']:
+        import tensorflow as tf
+        prepare()
+    
 def select_face():
     global args, select_face_label
     filex = askopenfilename(title="Select a face")
@@ -101,6 +149,10 @@ def select_output():
         args['output'] = filex
     select_output_label.config(text=f'Output filename: {args["output"]}')
 
+if not args['fastload']:
+    if not globalsz.args['nocuda']:
+        device = torch.device(0)
+        gpu_memory_total = round(torch.cuda.get_device_properties(device).total_memory / 1024**3,2)  # Convert bytes to GB
     
 if not args['cli']:
     import tkinter as tk
@@ -145,9 +197,6 @@ if args['preview'] and isinstance(args['target_path'], int):
 if args['preview'] and args['cli']:
     print("Preview mode does not work with cli, so please use GUI")
     exit()
-if not args['nocuda']:
-    device = torch.device(0)
-    gpu_memory_total = round(torch.cuda.get_device_properties(device).total_memory / 1024**3,2)  # Convert bytes to GB
 adjust_x1 = 50
 adjust_y1 = 50
 adjust_x2 = 50
@@ -320,8 +369,9 @@ if not args['cli']:
         usage_label2 = tk.Label(left_frame, fg=text_color, bg=background_color)
         usage_label2.grid(row=27, column=0)
     
+    frame_index = 0
+    frame_move = 0
     if args['preview']:
-        frame_index = 0
         def on_slider_move(value):
             global frame_index
             frame_index = int(value)
@@ -331,7 +381,6 @@ if not args['cli']:
             frame_index += amount
             slider.set(frame_index)
         
-        frame_move = 0
         
         def edit_play(amount):
             global frame_move
@@ -412,23 +461,24 @@ if not args['cli']:
         
 
     def update_progress_bar(length, progress, total, gpu_usage, vram_usage, total_vram):
-        if not args['preview'] and not isinstance(args['target_path'], int):
-            filled_length = int(length * progress // total)
-            bar = '█' * filled_length + '—' * (length - filled_length)
-            percent = round(100.0 * progress / total, 1)
-            progress_text = f'Progress: |{bar}| {percent}% {progress}/{total}'
-            progress_label['text'] = progress_text
-        if not args['nocuda']:
-            usage_label1['text'] = f"gpu usage: {gpu_usage}%|VRAM usage: {vram_usage}/{total_vram}GB"
-            ram_usage, total_ram, cpu_usage = get_system_usage()
-            usage_label2['text'] = f"cpu usage: {cpu_usage}%|RAM usage: {ram_usage}/{total_ram}GB"
-        else:
-            ram_usage, total_ram, cpu_usage = get_system_usage()
-            usage_label1['text'] = f"cpu usage: {cpu_usage}%|RAM usage: {ram_usage}/{total_ram}GB"
-        #progress_var.set(text=progress_text)
-        root.update()
-
-
+        try:
+            if not args['preview'] and not isinstance(args['target_path'], int):
+                filled_length = int(length * progress // total)
+                bar = '█' * filled_length + '—' * (length - filled_length)
+                percent = round(100.0 * progress / total, 1)
+                progress_text = f'Progress: |{bar}| {percent}% {progress}/{total}'
+                progress_label['text'] = progress_text
+            if not args['nocuda']:
+                usage_label1['text'] = f"gpu usage: {gpu_usage}%|VRAM usage: {vram_usage}/{total_vram}GB"
+                ram_usage, total_ram, cpu_usage = get_system_usage()
+                usage_label2['text'] = f"cpu usage: {cpu_usage}%|RAM usage: {ram_usage}/{total_ram}GB"
+            else:
+                ram_usage, total_ram, cpu_usage = get_system_usage()
+                usage_label1['text'] = f"cpu usage: {cpu_usage}%|RAM usage: {ram_usage}/{total_ram}GB"
+            #progress_var.set(text=progress_text)
+            root.update()
+        except:
+            return
 def face_analyser_thread(frame, sw):
     global alpha
     original_frame = frame
@@ -452,7 +502,7 @@ def face_analyser_thread(frame, sw):
                 if faceswapper_checkbox_var.get() == True:
                     ttest1=True
             if not args['no_faceswap'] and (ttest1 == True or args['cli']):
-                frame = face_swappers[sw].get(frame, face, source_face, paste_back=True)
+                frame = face_swappers[sw].get(frame, face, get_source_face(), paste_back=True)
             try:
                 test1 = checkbox_var.get() == 1 
                 test2 = not enhancer_choice.get() == "codeformer"
@@ -492,11 +542,15 @@ def face_analyser_thread(frame, sw):
                     print(e)
         if not args['cli']:
             if enhancer_choice.get() == "codeformer" and checkbox_var.get() == 1 : 
+                if args['fastload']:
+                    from plugins.codeformer_app_cv2 import inference_app as codeformer
                 #frame, background enhance bool true, face upscample bool true, upscale int 2,
                 # codeformer fidelity float 0.8, skip_if_no_face bool false 
                 frame = codeformer(frame, codeformer_enhance_background_var.get(), codeformer_upscale_face_var.get(), codeformer_upscale_amount_value, codeformer_fidelity, codeformer_skip_if_no_face_var.get())
         else:
             if args['face_enhancer'] == 'codeformer':
+                if args['fastload']:
+                    from plugins.codeformer_app_cv2 import inference_app as codeformer
                 frame = codeformer(frame, args['codeformer_background_enhance'], args['codeformer_face_upscale'], args['codeformer_upscale'], float(args['codeformer_fidelity']), args['codeformer_skip_if_no_face'])
         if not args['cli']:
             test1 = alpha != 1
@@ -535,14 +589,17 @@ def cv2_image_to_tkinter(cv2_image, target_width, target_height):
 def frame_updater():
     if not isinstance(original_frame, NoneType) and not isinstance(swapped_frame, NoneType):
         #original_frame,swapped_frame
-        sizex1, sizey1 = right_frame1.winfo_width(), right_frame1.winfo_height()
-        sizex2, sizey2 = right_frame2.winfo_width(), right_frame2.winfo_height()
-        tk_image = cv2_image_to_tkinter(original_frame, sizex1, sizey1)
-        original_image_label.configure(image=tk_image)
-        original_image_label.image = tk_image  # Keep a reference to prevent garbage collection
-        tk_image = cv2_image_to_tkinter(swapped_frame, sizex2, sizey2)
-        swapped_image_label.configure(image=tk_image)
-        swapped_image_label.image = tk_image
+        try:
+            sizex1, sizey1 = right_frame1.winfo_width(), right_frame1.winfo_height()
+            sizex2, sizey2 = right_frame2.winfo_width(), right_frame2.winfo_height()
+            tk_image = cv2_image_to_tkinter(original_frame, sizex1, sizey1)
+            original_image_label.configure(image=tk_image)
+            original_image_label.image = tk_image  # Keep a reference to prevent garbage collection
+            tk_image = cv2_image_to_tkinter(swapped_frame, sizex2, sizey2)
+            swapped_image_label.configure(image=tk_image)
+            swapped_image_label.image = tk_image
+        except:
+            pass
     root.after(30, frame_updater)
 def get_embedding(face_image):
     try:
@@ -561,11 +618,70 @@ def process_image(input_path, output_path, sw):
         image = restorer_enhance(image)
     cv2.imwrite(output_path, image)
 
-def main():
-    global args, width, height, frame_index, face_analysers,frame_move, face_swappers, source_face, progress_var, target_embedding, count, frame_number, listik, frame, original_frame,swapped_frame
-    face_swappers, face_analysers = prepare_swappers_and_analysers(args)
-    input_face = cv2.imread(args['face'])
+def just_preload_them(sw, frame):
+    for i in range(int(args['threads'])):
+        threading.Thread(target=load, args=(sw, frame)).start()
+def load(sw,frame):
+    faces = face_analysers[sw].get(frame)
+    face = list(faces)[0]
+    face_swappers[sw].get(frame, face, source_face, paste_back=True)
+
+def source_face_creator(input_face):
+    global source_face
     source_face = sorted(face_analysers[0].get(input_face), key=lambda x: x.bbox[0])[0]
+
+
+
+
+
+def optimize_saver():
+    import pickle
+    x = face_analysers[0].get(cv2.imread(args['face']))[0] #sorted(face_analysers[0].get(cv2.imread(args['face'])), key=lambda x: x.bbox[0])[0]
+    #print(x)
+    ll = {}
+    for key, value in x.items():
+        ll[key] = value
+    ll = simulate(ll['bbox'], ll['kps'],ll['det_score'],ll['embedding'], ll['embedding'])
+        #print(key, ":", value)
+    #frame = face_swappers[0].get(cv2.imread(args['face']), face, get_source_face(), paste_back=True)
+    
+    
+    #ll.bbox = x.get('bbox')
+    #ll.kps = x.kps
+    #ll.det_score = x.det_score
+    #ll.embedding = x.embedding
+    
+    with open('ll.pkl', 'wb') as file:
+        pickle.dump(ll, file)
+        
+    with open('ll.pkl', 'rb') as file:
+        loaded_data = pickle.load(file)
+    frame = face_swappers[0].get(cv2.imread(args['face']), loaded_data, get_source_face(), paste_back=True)
+    print('nice')
+    exit()
+
+def open_second_window():
+    def run_it_please():
+        global runnable
+        runnable = 0
+        second_window.destroy()
+    second_window = tk.Toplevel(root)
+    label = tk.Label(second_window, text='press the button to start rendering')
+    label.pack()
+    button = tk.Button(second_window, text='Start', command=run_it_please)
+    button.pack()
+
+def main():
+    global runnable, args, width, height, frame_index, face_analysers,frame_move, face_swappers, source_face, progress_var, target_embedding, count, frame_number, listik, frame, original_frame,swapped_frame
+    #start = time.time()
+    if not args['fastload']:
+        face_swappers, face_analysers = prepare_swappers_and_analysers(args)
+    #optimize_saver()
+    #if args['fastload']:
+    #    source_face_thread = threading.Thread(target=source_face_creator, args=(input_face,))
+    #    source_face_thread.start()
+    #else:
+    #    source_face = sorted(face_analysers[0].get(input_face), key=lambda x: x.bbox[0])[0]
     target_embedding = None
     gpu_usage = 0
     vram_usage = 0
@@ -604,15 +720,27 @@ def main():
         for file in os.listdir(args['target_path']):
             if is_video_file(file):
                 caps.append(create_batch_cap(file))
+    #if args['fastload']:
+    #    source_face_thread.join()
+    #print(time.time()-start)
+    if args['fastload'] and args['cli']:
+        tx.join()
+    elif args['fastload'] and not args['cli']:
+        for t in tx:
+            t.join()
+
+    runnable = 1
+    if not args['cli'] and not args['preview']:
+        open_second_window()
     for cap, fps, width, height, out, name, file, frame_number in caps:
         #root.after(1, update_progress_length, frame_number)
         #update_progress_bar( 10, 0, frame_number)
-        count = 0
+        count = -1
         with tqdm(total=frame_number) as progressbar:
             temp = []
             bbox = []
             start = time.time()
-            if not args['preview']:
+            '''if not args['preview']:
                 for i in range(int(args['threads'])):
                     if args['experimental']:
                         frame = cap.read()
@@ -624,9 +752,13 @@ def main():
                             break
                     temp.append(ThreadWithReturnValue(target=face_analyser_thread, args=(frame,count%len(face_swappers))))
                     temp[-1].start()
+                    count += 1'''
             while True:
                 try:
-                    if not args['preview']:
+                    if not args['preview'] and ((not runnable and not args['cli']) or args['cli']):
+                        count += 1
+                        if count == 0:
+                            progressbar.reset()
                         if args['experimental']:
                             frame = cap.read()
                             if isinstance(frame, NoneType): #== None:
@@ -637,7 +769,9 @@ def main():
                                 break
                         temp.append(ThreadWithReturnValue(target=face_analyser_thread, args=(frame,count%len(face_swappers))))
                         temp[-1].start()
-                        while len(temp) >= int(args['threads']):
+                        if len(temp) < int(args['threads']) * len(face_swappers) and ret:
+                            continue
+                        while len(temp) >= int(args['threads']) * len(face_swappers):
                             bbox, frame, original_frame = temp.pop(0).join()
                     else:
                         bbox, frame, original_frame = face_analyser_thread(get_nth_frame(cap, frame_index-1), count%len(face_swappers))
@@ -657,8 +791,8 @@ def main():
                         if not args['nocuda']:
                             vram_usage, gpu_usage = round(gpu_memory_total - torch.cuda.mem_get_info(device)[0] / 1024**3,2), torch.cuda.utilization(device=device)
                             progressbar.set_description(f"VRAM: {vram_usage}/{gpu_memory_total} GB, usage: {gpu_usage}%")
+                    
                     if not args['cli']:
-                        count += 1
                         if not args['nocuda']:
                             listik = [count, frame_number,gpu_usage, vram_usage,gpu_memory_total]
                         else:
@@ -669,7 +803,7 @@ def main():
                     if not args['cli']:
                         if show_external_swapped_preview_var.get() == 1:
                             cv2.imshow('swapped frame', frame)
-                    if not args['preview']:
+                    if not args['preview'] and ((not runnable and not args['cli']) or args['cli']):
                         out.write(frame)
                     if args['preview']:
                         frame_index += frame_move
@@ -679,7 +813,8 @@ def main():
                             frame_index = frame_number
                     if args['extract_output'] != '':
                         cv2.imwrite(os.path.join(args['extract_output'], os.path.basename(file), f"frame_{count:05d}.png"), frame)
-                    progressbar.update(1)
+                    if not args['preview'] and ((not runnable and not args['cli']) or args['cli']):
+                        progressbar.update(1)
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         break
                 except KeyboardInterrupt:
@@ -732,16 +867,22 @@ def main():
                 print(f"SOMETHING WENT WRONG DURING THE ADDING OF THE AUDIO TO THE VIDEO!file: {os.path.join(args['output'], file)}, error:{e}")
         else:
              if not isinstance(args['target_path'], int):
-                add_audio_from_video(name, args['target_path'], args['output'])
-                os.remove(name)
+                try:
+                    add_audio_from_video(name, args['target_path'], args['output'])
+                    os.remove(name)
+                except Exception as e:
+                    print(f"failed to add audio: {e}")
         
         
     print("Processing finished, you may close the window now")
-    root.destroy()
+    if not args['cli']:
+        root.destroy()
     os._exit(0)
 if args['batch'] != '':
     os.makedirs(args['output'], exist_ok=True)
 globalsz.args = args
+if args['fastload']:
+    wait_thread.join()
 try:
     if not args['cli']:
         listik = [0, 1, 0, 0, 0]

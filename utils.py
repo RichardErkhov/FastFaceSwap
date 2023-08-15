@@ -1,32 +1,58 @@
+
+import globalsz
+import threading
+
+def prepare():
+    def mish_activation(x):
+        return x * tf.keras.activations.tanh(tf.keras.activations.softplus(x))
+    class Mish(tf.keras.layers.Layer):
+        def __init__(self, **kwargs):
+            super(Mish, self).__init__()
+        def call(self, inputs):
+            return mish_activation(inputs)
+    tf.keras.utils.get_custom_objects().update({'Mish': Mish})
+def fastloadimporter():
+    global torch, cv2, gpu_memory_total, tf, device
+    import torch
+    import cv2
+    
+    if not globalsz.args['nocuda']:
+        device = torch.device(0)
+        gpu_memory_total = round(torch.cuda.get_device_properties(device).total_memory / 1024**3,2)  # Convert bytes to GB
+    if not globalsz.args['lowmem']:
+        import tensorflow as tf
+        prepare()
+if globalsz.args['fastload']:
+    wait_thread = threading.Thread(target=fastloadimporter)
+    wait_thread.start()
 import subprocess 
 from threading import Thread
 import onnxruntime as rt
 import insightface
 import cv2
 import numpy as np
-import threading
-import queue
 import time
 from tkinter import messagebox
 from PIL import Image
-from numpy import asarray
 import os
-from scipy.spatial import distance
 import psutil
-import globalsz
 from types import NoneType
-from gfpgan import GFPGANer
 import sys
-import torch
 #if not globalsz.args['nocuda']:
 #    torch.backends.cudnn.benchmark = True
-from swapperfp16 import get_model
-import requests
 import tqdm
-from basicsr.archs.rrdbnet_arch import RRDBNet
-from basicsr.utils.download_util import load_file_from_url
-from realesrgan import RealESRGANer
-from realesrgan.archs.srvgg_arch import SRVGGNetCompact
+
+if not globalsz.args['fastload']:
+    from basicsr.archs.rrdbnet_arch import RRDBNet
+    from basicsr.utils.download_util import load_file_from_url
+    from realesrgan import RealESRGANer
+    from realesrgan.archs.srvgg_arch import SRVGGNetCompact
+    from gfpgan import GFPGANer
+    import requests
+    from swapperfp16 import get_model
+    from scipy.spatial import distance
+    import queue
+    import torch
 if not globalsz.lowmem:
     import tensorflow as tf
     physical_devices = tf.config.list_physical_devices('GPU')
@@ -86,7 +112,7 @@ def add_audio_from_video(video_path, audio_video_path, output_path):
     subprocess.run(ffmpeg_cmd, check=True)
 def merge_face(temp_frame, original, alpha):
     temp_frame = Image.blend(Image.fromarray(original), Image.fromarray(temp_frame), alpha)
-    return asarray(temp_frame)
+    return np.asarray(temp_frame)
 class GFPGAN_onnxruntime:
     def __init__(self, model_path, use_gpu = False):
         sess_options = rt.SessionOptions()
@@ -155,15 +181,6 @@ class GFPGAN_onnxruntime:
         output, inv_soft_mask = self.post_process(output, height, width)
         output = output.astype(np.uint8)
         return output, inv_soft_mask
-def prepare():
-    def mish_activation(x):
-        return x * tf.keras.activations.tanh(tf.keras.activations.softplus(x))
-    class Mish(tf.keras.layers.Layer):
-        def __init__(self, **kwargs):
-            super(Mish, self).__init__()
-        def call(self, inputs):
-            return mish_activation(inputs)
-    tf.keras.utils.get_custom_objects().update({'Mish': Mish})
     
 def add_audio_from_video(video_path, audio_video_path, output_path):
     ffmpeg_cmd = [
@@ -197,6 +214,7 @@ class ThreadWithReturnValue(Thread):
     
 class VideoCaptureThread:
     def __init__(self, video_path, buffer_size):
+        import queue
         self.video_path = video_path
         self.buffer_size = buffer_size
         self.frame_queue = queue.Queue(maxsize=buffer_size)
@@ -298,6 +316,8 @@ def show_warning():
     messagebox.showwarning("Warning", "Camera is not properly working with experimental mode, sorry")
 
 def compute_cosine_distance(emb1, emb2, allowed_distance):
+    if globalsz.args['fastload']:
+        from scipy.spatial import distance
     d = distance.cosine(emb1, emb2)
     check = False
     if d < allowed_distance:
@@ -309,10 +329,16 @@ def load_generator():
         #model_path = 'generator.onnx'
         #providers = rt.get_available_providers()
         #generator = rt.InferenceSession(model_path, providers=providers)
-        globalsz.generator = tf.keras.models.load_model('complex_256_v7_stage3_12999.h5')#, custom_objects={'Mish': Mish})
+        globalsz.generator = tf.keras.models.load_model('model21_stage5_epoch0_step10999_res256_lr.000004.h5')#, custom_objects={'Mish': Mish})
     return globalsz.generator
 
 def load_read_esrgan():
+    
+    if globalsz.args['fastload']:
+        from basicsr.archs.rrdbnet_arch import RRDBNet
+        from basicsr.utils.download_util import load_file_from_url
+        from realesrgan import RealESRGANer
+        from realesrgan.archs.srvgg_arch import SRVGGNetCompact
     model_path = None
     if isinstance(globalsz.realeasrgan_enhancer, NoneType):
         model_name = globalsz.realeasrgan_model
@@ -380,6 +406,9 @@ channel_multiplier = 2
 model_path = 'GFPGANv1.4.pth'
 def load_restorer():
     if isinstance(globalsz.restorer, NoneType):
+        
+        if globalsz.args['fastload']:
+            from gfpgan import GFPGANer
         globalsz.restorer = GFPGANer(
             model_path=model_path,
             upscale=0.8,
@@ -528,29 +557,9 @@ def get_sess_options():
     sess_options.execution_order = rt.ExecutionOrder.PRIORITY_BASED
     return sess_options
 
-def prepare_models(args):
-    providers = rt.get_available_providers()
-    sess_options = rt.SessionOptions()
-    sess_options.intra_op_num_threads = 8
-    sess_options2 = rt.SessionOptions()
-    sess_options2.graph_optimization_level = rt.GraphOptimizationLevel.ORT_DISABLE_ALL #Varying with all the options
-    sess_options.graph_optimization_level = rt.GraphOptimizationLevel.ORT_DISABLE_ALL #Varying with all the options
-    if not args['no_faceswap']:
-        face_swapper = insightface.model_zoo.get_model("inswapper_128.onnx", session_options=sess_options, providers=providers)
-    else:
-        face_swapper = None
-    if args['lowmem']:
-        face_analyser = insightface.app.FaceAnalysis(name='buffalo_l', providers=providers, session_options=sess_options2)
-        face_analyser.prepare(ctx_id=0, det_size=(256, 256))
-    else:
-        face_analyser = insightface.app.FaceAnalysis(name='buffalo_l', providers=providers)
-        face_analyser.prepare(ctx_id=0, det_size=(640, 640))
-    #face_analyser.models.pop("landmark_3d_68")
-    #face_analyser.models.pop("landmark_2d_106")
-    #face_analyser.models.pop("genderage")
-    return face_swapper, face_analyser
 
 def prepare_swappers_and_analysers(args):
+    global get_model
     provider_list = create_configs_for_onnx()
     sess_options = get_sess_options()
     swappers = []
@@ -558,21 +567,29 @@ def prepare_swappers_and_analysers(args):
     for idx, providers in enumerate(provider_list):
         if not args['no_faceswap']:
             if args['optimization'] == "fp16":
+                
+                if globalsz.args['fastload']:
+                    from swapperfp16 import get_model
                 swappers.append(get_model("inswapper_128.fp16.onnx", session_options=sess_options, providers=providers))
             elif args['optimization'] == "int8":
                 if "CUDAExecutionProvider" in provider_list:
                     print("int8 may not work on gpu properly and might load your cpu instead")
+                    
+                if globalsz.args['fastload']:
+                    from swapperfp16 import get_model
                 swappers.append(get_model("inswapper_128.quant.onnx", session_options=sess_options, providers=providers))
             else:
                 swappers.append(insightface.model_zoo.get_model("inswapper_128.onnx", session_options=sess_options, providers=providers))
         else:
             swappers.append(None)
 
-        analysers.append(insightface.app.FaceAnalysis(name='buffalo_l', providers=providers, session_options=sess_options))
+        analysers.append(insightface.app.FaceAnalysis(name='buffalo_l',allowed_modules=["recognition", "detection"], providers=providers, session_options=sess_options))
         analysers[idx].prepare(ctx_id=0, det_size=(256, 256)) #640, 640
     return swappers, analysers
 
 def download(link, filename):
+    if globalsz.args['fastload']:
+        import requests
     response = requests.get(link, stream=True)
     total_size = int(response.headers.get('content-length', 0))
     block_size = 1024*16  # 1 KB
@@ -589,4 +606,4 @@ def check_or_download(filename):
     exists = os.path.exists(filename)
     if not exists:
         download(f"https://github.com/RichardErkhov/FastFaceSwap/releases/download/model/{filename}", filename)
-    
+
