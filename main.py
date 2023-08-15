@@ -20,7 +20,7 @@ parser.add_argument('--image', help='Include if the target is image', dest='imag
 parser.add_argument('--cli', help='run in cli mode, turns off preview and now accepts switch of face enhancer from the command', dest='cli', action='store_true')
 parser.add_argument('--face-enhancer', help='face enhancer, choice works only in cli mode. In gui mode, you need to choose from gui', dest='face_enhancer', default='none', choices=['none','gfpgan', 'ffe', 'codeformer', 'gpfgan_onnx', 'real_esrgan'])
 parser.add_argument('--no-face-swapper', '--no-swapper', help='disables face swapper', dest='no_faceswap', action='store_true')
-parser.add_argument('--preview-mode', help='experimental: preview mode', dest='preview', action='store_true')
+#parser.add_argument('--preview-mode', help='experimental: preview mode', dest='preview', action='store_true')
 parser.add_argument('--experimental', help='experimental mode, enables features like buffered video reader', dest='experimental', action='store_true')
 parser.add_argument('--no-cuda', help='no cuda should be used', dest='nocuda', action='store_true')
 parser.add_argument('--low-memory', '--lowmem', help='low memory usage attempt', dest='lowmem', action='store_true')
@@ -191,12 +191,8 @@ if not args['cli']:
 
 if (args['target_path'].isdigit()):
     args['target_path'] = int(args['target_path'])
-if args['preview'] and isinstance(args['target_path'], int):
-    show_error()
-    exit()
-if args['preview'] and args['cli']:
-    print("Preview mode does not work with cli, so please use GUI")
-    exit()
+
+
 adjust_x1 = 50
 adjust_y1 = 50
 adjust_x2 = 50
@@ -221,6 +217,8 @@ def set_adjust_value():
     entry_y2.insert(0, adjust_y2)
 
 
+frame_index = 0
+frame_move = 0
 if not args['cli']:
     root = tk.Tk()
 
@@ -241,13 +239,13 @@ if not args['cli']:
               indicatorforeground=[("active", tick_color)],
               background=[("active", background_color)], 
               foreground=[("active", text_color)])
-    if not args['preview']:
-        root.geometry("1000x650")
-    else:
-        root.geometry("1000x770")
+    #if not args['preview']:
+    #    root.geometry("1000x750")
+    #else:
+    root.geometry("1000x870")
     root.configure(bg=background_color)
     left_frame = tk.Frame(root, bg=background_color)
-    left_frame.grid(row=0, column=0, rowspan=2, sticky="nsew")
+    left_frame.grid(row=0, column=0, rowspan=2, sticky="ns")
     
     faceswapper_checkbox_var = tk.IntVar(value=1)
     faceswapper_checkbox = ttk.Checkbutton(left_frame, text="Face swapper", variable=faceswapper_checkbox_var, style="TCheckbutton")
@@ -358,7 +356,7 @@ if not args['cli']:
     label = tk.Label(left_frame, text="codeformer settings finished", fg=text_color, bg=background_color)
     label.grid(row=24, column=0)
     
-    if not args['preview'] and not isinstance(args['target_path'], int):
+    if not isinstance(args['target_path'], int):
         progress_label = tk.Label(left_frame, fg=text_color, bg=background_color)
         progress_label.grid(row=25, column=0)
     
@@ -369,60 +367,67 @@ if not args['cli']:
         usage_label2 = tk.Label(left_frame, fg=text_color, bg=background_color)
         usage_label2.grid(row=27, column=0)
     
-    frame_index = 0
-    frame_move = 0
-    if args['preview']:
-        def on_slider_move(value):
-            global frame_index
-            frame_index = int(value)
+    #if args['preview']:
+    def on_slider_move(value):
+        global frame_index
+        frame_index = int(value)
+    
+    def edit_index(amount):
+        global frame_index
+        frame_index += amount
+        slider.set(frame_index)
+    
+    
+    def edit_play(amount):
+        global frame_move
+        frame_move = amount
+        #slider.set(frame_move)
+    frame_amount = count_frames(args['target_path'])
+    label = tk.Label(left_frame, text="frame number", fg=text_color, bg=background_color)
+    label.grid(row=28, column=0)
+    
+    slider = tk.Scale(left_frame, from_=1, to=frame_amount, fg=text_color, bg=background_color, orient=tk.HORIZONTAL, command=on_slider_move)
+    slider.grid(row=29, column=0, sticky="ew")
+    
+    frame_count_label = tk.Label(left_frame, text=f"total frames: {frame_amount}", fg=text_color, bg=background_color)
+    frame_count_label.grid(row=30, column=0, sticky="ew")
+    
+    button_width = left_frame.winfo_width() // 2
+    
+    label = tk.Label(left_frame, text = "frame back, frame forward, backplay, pause, play", fg=text_color, bg=background_color)
+    label.grid(row=31, column=0, sticky="ew")
+    
+    button_frame = tk.Frame(left_frame, bg=background_color)
+    button_frame.grid(row=32, column=0, pady=10, sticky="ew")
+    
+    frame_back_button = tk.Button(button_frame, text='<', bg=button_color, fg=text_color, width=button_width, command=lambda: edit_index(-1), anchor="center")
+    frame_back_button.pack(side=tk.LEFT, fill=tk.X, expand=True)
+    
+    frame_back_button = tk.Button(button_frame, text='◀', bg=button_color, fg=text_color, width=button_width, command=lambda: edit_play(-1), anchor="center")
+    frame_back_button.pack(side=tk.LEFT, fill=tk.X, expand=True)
+    
+    frame_back_button = tk.Button(button_frame, text='⏸', bg=button_color, fg=text_color, width=button_width, command=lambda: edit_play(0), anchor="center")
+    frame_back_button.pack(side=tk.LEFT, fill=tk.X, expand=True)
+    
+    frame_back_button = tk.Button(button_frame, text='▶', bg=button_color, fg=text_color, width=button_width, command=lambda: edit_play(1), anchor="center")
+    frame_back_button.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+    frame_forward_button = tk.Button(button_frame, text='>', bg=button_color, fg=text_color, width=button_width, command=lambda: edit_index(1), anchor="center")
+    frame_forward_button.pack(side=tk.LEFT, fill=tk.X, expand=True)
         
-        def edit_index(amount):
-            global frame_index
-            frame_index += amount
-            slider.set(frame_index)
-        
-        
-        def edit_play(amount):
-            global frame_move
-            frame_move = amount
-            #slider.set(frame_move)
-        
-        frame_amount = count_frames(args['target_path'])
-        label = tk.Label(left_frame, text="frame number", fg=text_color, bg=background_color)
-        label.grid(row=28, column=0)
-        
-        slider = tk.Scale(left_frame, from_=1, to=frame_amount, fg=text_color, bg=background_color, orient=tk.HORIZONTAL, command=on_slider_move)
-        slider.grid(row=29, column=0, sticky="ew")
-        
-        frame_count_label = tk.Label(left_frame, text=f"total frames: {frame_amount}", fg=text_color, bg=background_color)
-        frame_count_label.grid(row=30, column=0, sticky="ew")
-        
-        button_width = left_frame.winfo_width() // 2
-        
-        label = tk.Label(left_frame, text = "frame back, frame forward, backplay, pause, play", fg=text_color, bg=background_color)
-        label.grid(row=31, column=0, sticky="ew")
-        
-        button_frame = tk.Frame(left_frame, bg=background_color)
-        button_frame.grid(row=32, column=0, pady=10, sticky="ew")
-        
-        frame_back_button = tk.Button(button_frame, text='<', bg=button_color, fg=text_color, width=button_width, command=lambda: edit_index(-1))
-        frame_back_button.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        
-        frame_forward_button = tk.Button(button_frame, text='>', bg=button_color, fg=text_color, width=button_width, command=lambda: edit_index(1))
-        frame_forward_button.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        
-        frame_back_button = tk.Button(button_frame, text='◀️', bg=button_color, fg=text_color, width=button_width, command=lambda: edit_play(-1))
-        frame_back_button.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        
-        frame_back_button = tk.Button(button_frame, text='⏸️', bg=button_color, fg=text_color, width=button_width, command=lambda: edit_play(0))
-        frame_back_button.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        
-        frame_back_button = tk.Button(button_frame, text='▶️', bg=button_color, fg=text_color, width=button_width, command=lambda: edit_play(1))
-        frame_back_button.pack(side=tk.LEFT, fill=tk.X, expand=True)
+    def run_it_please():
+        global runnable, frame_index, count
+        runnable = 0
+        frame_index = 0
+        count = -1
+        render_button.config(state=tk.DISABLED)
+        cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
     show_external_swapped_preview_var = tk.IntVar()
     show_external_swapped_preview = ttk.Checkbutton(left_frame, text="Show swapped face in another window", variable=show_external_swapped_preview_var, style="TCheckbutton")
-    show_external_swapped_preview.grid(row=31, column=0)
+    show_external_swapped_preview.grid(row=33, column=0)
     show_external_swapped_preview_var.set(0)
+    render_button = tk.Button(left_frame, text='render', bg=button_color, fg=text_color, command=run_it_please)
+    render_button.grid(row=34, column=0)
     
     right_frame1 = tk.Frame(root, bg=background_color, highlightthickness=2, highlightbackground=border_color)
     right_frame2 = tk.Frame(root, bg=background_color, highlightthickness=2, highlightbackground=border_color)
@@ -462,7 +467,7 @@ if not args['cli']:
 
     def update_progress_bar(length, progress, total, gpu_usage, vram_usage, total_vram):
         try:
-            if not args['preview'] and not isinstance(args['target_path'], int):
+            if runnable and not isinstance(args['target_path'], int):
                 filled_length = int(length * progress // total)
                 bar = '█' * filled_length + '—' * (length - filled_length)
                 percent = round(100.0 * progress / total, 1)
@@ -672,7 +677,7 @@ def open_second_window():
     button.pack()
 
 def main():
-    global runnable, args, width, height, frame_index, face_analysers,frame_move, face_swappers, source_face, progress_var, target_embedding, count, frame_number, listik, frame, original_frame,swapped_frame
+    global runnable, args, width, height, frame_index, face_analysers,frame_move, face_swappers, source_face, progress_var, target_embedding, count, frame_number, listik, frame, original_frame,swapped_frame, cap
     #start = time.time()
     if not args['fastload']:
         face_swappers, face_analysers = prepare_swappers_and_analysers(args)
@@ -712,7 +717,7 @@ def main():
         while threading.active_count() > original_threads:
             time.sleep(0.01)
         print("image processing finished")
-        return 
+        exit()
     caps = []
     if args['batch'] == '':
         caps.append(create_cap())
@@ -729,13 +734,14 @@ def main():
         for t in tx:
             t.join()
 
-    runnable = 1
-    if not args['cli'] and not args['preview']:
-        open_second_window()
+    runnable = not int(args['cli'])
+    #if not args['cli'] and not args['preview']:
+    #    open_second_window()
     for cap, fps, width, height, out, name, file, frame_number in caps:
         #root.after(1, update_progress_length, frame_number)
         #update_progress_bar( 10, 0, frame_number)
         count = -1
+        frame_index = count
         with tqdm(total=frame_number) as progressbar:
             temp = []
             bbox = []
@@ -755,8 +761,10 @@ def main():
                     count += 1'''
             while True:
                 try:
-                    if not args['preview'] and ((not runnable and not args['cli']) or args['cli']):
+                    if runnable == 0 and ((not runnable and not args['cli']) or args['cli']):
                         count += 1
+                        #if not isinstance(args['target_path'], int):
+                        frame_index = count
                         if count == 0:
                             progressbar.reset()
                         if args['experimental']:
@@ -803,17 +811,19 @@ def main():
                     if not args['cli']:
                         if show_external_swapped_preview_var.get() == 1:
                             cv2.imshow('swapped frame', frame)
-                    if not args['preview'] and ((not runnable and not args['cli']) or args['cli']):
+                    if runnable == 0 and ((not runnable and not args['cli']) or args['cli']):
                         out.write(frame)
-                    if args['preview']:
-                        frame_index += frame_move
-                        if frame_index < 1:
-                            frame_index = 1
-                        elif frame_index > frame_number:
-                            frame_index = frame_number
+                    if runnable:
+                        
+                        if not isinstance(args['target_path'], int):
+                            frame_index += frame_move
+                            if frame_index < 1:
+                                frame_index = 1
+                            elif frame_index > frame_number:
+                                frame_index = frame_number
                     if args['extract_output'] != '':
                         cv2.imwrite(os.path.join(args['extract_output'], os.path.basename(file), f"frame_{count:05d}.png"), frame)
-                    if not args['preview'] and ((not runnable and not args['cli']) or args['cli']):
+                    if runnable == 0 and ((not runnable and not args['cli']) or args['cli']):
                         progressbar.update(1)
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         break
@@ -838,7 +848,7 @@ def main():
                         vram_usage, gpu_usage = round(gpu_memory_total - torch.cuda.mem_get_info(device)[0] / 1024**3,2), torch.cuda.utilization(device=device)
                         progressbar.set_description(f"VRAM: {vram_usage}/{gpu_memory_total} GB, usage: {gpu_usage}%")
                 
-                if not args['preview']:
+                if runnable == 0 and ((not runnable and not args['cli']) or args['cli']):
                     out.write(frame)
                 if args['extract_output'] != '':
                     cv2.imwrite(os.path.join(args['extract_output'], os.path.basename(file), f"frame_{count:05d}.png"), frame)
@@ -849,7 +859,7 @@ def main():
                 #if not args['cli']:
                     #cv2.imshow('Face Detection', frame)
                     #update_progress_bar(10, count, frame_number)
-                if args['preview']:
+                if runnable:
                     old_number = frame_index
                     while frame_index == old_number:
                         time.sleep(0.01)
@@ -889,14 +899,17 @@ try:
         threading.Thread(target=main).start()
         def update_gui(old_index=0):
             global frame_index
-            update_progress_bar(7, listik[0], listik[1], listik[2], listik[3], listik[4])
-            
-            if args['preview']:
+            try:
+                update_progress_bar(7, listik[0], listik[1], listik[2], listik[3], listik[4])
+                
+                #if args['preview']:
                 if old_index != frame_index:  
                     slider.set(frame_index)
                     old_index = frame_index
 
-            root.after(300, update_gui, old_index)
+                root.after(300, update_gui, old_index)
+            except:
+                return
         update_gui()
         frame_updater()
         root.mainloop()

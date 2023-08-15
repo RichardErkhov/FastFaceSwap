@@ -39,12 +39,10 @@ class INSwapper():
         self.input_shape = input_shape
         print('inswapper-shape:', self.input_shape)
         self.input_size = tuple(input_shape[2:4][::-1])
-
     def forward(self, img, latent):
         img = (img - self.input_mean) / self.input_std
         pred = self.session.run(self.output_names, {self.input_names[0]: img, self.input_names[1]: latent})[0]
         return pred
-
     def get(self, img, target_face, source_face, paste_back=True):
         aimg, M = face_align.norm_crop2(img, target_face.kps, self.input_size[0])
         blob = cv2.dnn.blobFromImage(aimg, 1.0 / self.input_std, self.input_size,
