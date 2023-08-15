@@ -821,12 +821,13 @@ def main():
                     if runnable:
                         
                         if not isinstance(args['target_path'], int):
+                            old_index = frame_index
                             frame_index += frame_move
                             if frame_index < 1:
                                 frame_index = 1
                             elif frame_index > frame_number:
                                 frame_index = frame_number
-                            old_index = frame_index
+                            
                     if args['extract_output'] != '':
                         cv2.imwrite(os.path.join(args['extract_output'], os.path.basename(file), f"frame_{count:05d}.png"), frame)
                     if runnable == 0 and ((not runnable and not args['cli']) or args['cli']):
