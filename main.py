@@ -759,6 +759,7 @@ def main():
                     temp.append(ThreadWithReturnValue(target=face_analyser_thread, args=(frame,count%len(face_swappers))))
                     temp[-1].start()
                     count += 1'''
+            xxs = True
             while True:
                 try:
                     if runnable == 0 and ((not runnable and not args['cli']) or args['cli']):
@@ -781,8 +782,10 @@ def main():
                             continue
                         while len(temp) >= int(args['threads']) * len(face_swappers):
                             bbox, frame, original_frame = temp.pop(0).join()
+                        xxs = True
                     else:
                         bbox, frame, original_frame = face_analyser_thread(get_nth_frame(cap, frame_index-1), count%len(face_swappers))
+                        xxs = False
                     if not args['cli']:
                         if show_bbox_var.get() == 1:
                             for i in bbox: 
@@ -811,7 +814,7 @@ def main():
                     if not args['cli']:
                         if show_external_swapped_preview_var.get() == 1:
                             cv2.imshow('swapped frame', frame)
-                    if runnable == 0 and ((not runnable and not args['cli']) or args['cli']):
+                    if runnable == 0 and ((not runnable and not args['cli']) or args['cli']) and xxs:
                         out.write(frame)
                     if runnable:
                         
