@@ -80,7 +80,7 @@ def start_swapper(sw):
     import pickle
     with open('ll.pkl', 'rb') as file:
         loaded_data = pickle.load(file)
-    frame = face_swappers[sw].get(cv2.imread(args['face']), loaded_data, get_source_face(), paste_back=True)
+    frame = face_swappers[sw].get(cv2.imread(args['face']), loaded_data, loaded_data, paste_back=True)
     return frame
 def start_analyser(sw):
     x = sorted(face_analysers[sw].get(cv2.imread(args['face'])), key=lambda x: x.bbox[0])[0]
@@ -467,7 +467,7 @@ if not args['cli']:
 
     def update_progress_bar(length, progress, total, gpu_usage, vram_usage, total_vram):
         try:
-            if runnable and not isinstance(args['target_path'], int):
+            if not runnable and not isinstance(args['target_path'], int):
                 filled_length = int(length * progress // total)
                 bar = '█' * filled_length + '—' * (length - filled_length)
                 percent = round(100.0 * progress / total, 1)
@@ -592,19 +592,19 @@ def cv2_image_to_tkinter(cv2_image, target_width, target_height):
     
     return ImageTk.PhotoImage(pil_image_resized)
 def frame_updater():
-    if not isinstance(original_frame, NoneType) and not isinstance(swapped_frame, NoneType):
-        #original_frame,swapped_frame
-        try:
-            sizex1, sizey1 = right_frame1.winfo_width(), right_frame1.winfo_height()
-            sizex2, sizey2 = right_frame2.winfo_width(), right_frame2.winfo_height()
-            tk_image = cv2_image_to_tkinter(original_frame, sizex1, sizey1)
-            original_image_label.configure(image=tk_image)
-            original_image_label.image = tk_image  # Keep a reference to prevent garbage collection
-            tk_image = cv2_image_to_tkinter(swapped_frame, sizex2, sizey2)
-            swapped_image_label.configure(image=tk_image)
-            swapped_image_label.image = tk_image
-        except:
-            pass
+    try:
+        if not isinstance(original_frame, NoneType) and not isinstance(swapped_frame, NoneType):
+            #original_frame,swapped_frame
+                sizex1, sizey1 = right_frame1.winfo_width(), right_frame1.winfo_height()
+                sizex2, sizey2 = right_frame2.winfo_width(), right_frame2.winfo_height()
+                tk_image = cv2_image_to_tkinter(original_frame, sizex1, sizey1)
+                original_image_label.configure(image=tk_image)
+                original_image_label.image = tk_image  # Keep a reference to prevent garbage collection
+                tk_image = cv2_image_to_tkinter(swapped_frame, sizex2, sizey2)
+                swapped_image_label.configure(image=tk_image)
+                swapped_image_label.image = tk_image
+    except:
+        pass
     root.after(30, frame_updater)
 def get_embedding(face_image):
     try:
@@ -903,6 +903,7 @@ try:
         def update_gui(old_index=0):
             global frame_index
             try:
+                #if not runnable:
                 update_progress_bar(7, listik[0], listik[1], listik[2], listik[3], listik[4])
                 
                 #if args['preview']:
@@ -910,9 +911,9 @@ try:
                     slider.set(frame_index)
                     old_index = frame_index
 
-                root.after(300, update_gui, old_index)
             except:
-                return
+                pass
+            root.after(300, update_gui, old_index)
         update_gui()
         frame_updater()
         root.mainloop()
