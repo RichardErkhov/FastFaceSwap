@@ -760,6 +760,7 @@ def main():
                     temp[-1].start()
                     count += 1'''
             xxs = True
+            old_index = 0
             while True:
                 try:
                     if runnable == 0 and ((not runnable and not args['cli']) or args['cli']):
@@ -784,7 +785,8 @@ def main():
                             bbox, frame, original_frame = temp.pop(0).join()
                         xxs = True
                     else:
-                        bbox, frame, original_frame = face_analyser_thread(get_nth_frame(cap, frame_index-1), count%len(face_swappers))
+                        if not frame_index == old_index:
+                            bbox, frame, original_frame = face_analyser_thread(get_nth_frame(cap, frame_index-1), count%len(face_swappers))
                         xxs = False
                     if not args['cli']:
                         if show_bbox_var.get() == 1:
@@ -824,6 +826,7 @@ def main():
                                 frame_index = 1
                             elif frame_index > frame_number:
                                 frame_index = frame_number
+                            old_index = frame_index
                     if args['extract_output'] != '':
                         cv2.imwrite(os.path.join(args['extract_output'], os.path.basename(file), f"frame_{count:05d}.png"), frame)
                     if runnable == 0 and ((not runnable and not args['cli']) or args['cli']):

@@ -103,7 +103,8 @@ def add_audio_from_video(video_path, audio_video_path, output_path):
         'ffmpeg',
         '-i', video_path,
         '-i', audio_video_path,
-        '-c:v', 'copy',
+        '-c:v', 'copy',    # Copy video codec settings
+        '-c:a', 'copy',    # Copy audio codec settings
         '-map', '0:v:0',
         '-map', '1:a:0',
         '-shortest',
