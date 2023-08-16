@@ -318,6 +318,7 @@ def show_warning():
     messagebox.showwarning("Warning", "Camera is not properly working with experimental mode, sorry")
 
 def compute_cosine_distance(emb1, emb2, allowed_distance):
+    global distance
     if globalsz.args['fastload']:
         from scipy.spatial import distance
     d = distance.cosine(emb1, emb2)
