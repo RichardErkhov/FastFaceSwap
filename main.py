@@ -446,6 +446,7 @@ if not args['cli']:
         root.grid_columnconfigure(0, weight=1)
         root.grid_columnconfigure(1, weight=4)
         root.grid_columnconfigure(2, weight=4)
+        root.grid_columnconfigure(3, weight=1)
         root.grid_rowconfigure(0, weight=1)
 
     else:
@@ -460,10 +461,33 @@ if not args['cli']:
         root.grid_columnconfigure(0, weight=1)
         root.grid_columnconfigure(1, weight=4)
         root.grid_columnconfigure(2, weight=4)
+        root.grid_columnconfigure(3, weight=1)
         root.grid_rowconfigure(0, weight=1) 
         root.grid_rowconfigure(1, weight=1)
 
-        
+    
+    '''right_control_frame = tk.Frame(root, bg=background_color)
+    right_control_frame.grid(row=0, column=3, rowspan=2, sticky="ns")
+    button_start_program = tk.Button(right_control_frame, text="Add this video",bg=button_color, fg=text_color, command=lambda: finish(menu))
+    button_start_program.pack()
+    select_face_label = tk.Label(right_control_frame, text=f'Face filename: {args["face"]}', fg=text_color, bg=background_color)
+    select_face_label.pack()
+    button_select_face = tk.Button(right_control_frame, text='Select face',bg=button_color, fg=text_color, command=select_face)
+    button_select_face.pack()
+    select_target_label = tk.Label(right_control_frame, text=f'Target filename: {args["target_path"]}', fg=text_color, bg=background_color)
+    select_target_label.pack()
+    button_select_target = tk.Button(right_control_frame, text='Select target',bg=button_color, fg=text_color, command=select_target)
+    button_select_target.pack()
+    button_select_camera = tk.Button(right_control_frame, text='run from camera',bg=button_color, fg=text_color, command=select_camera)
+    button_select_camera.pack()
+    select_output_label = tk.Label(right_control_frame, text=f'output filename: {args["output"]}', fg=text_color, bg=background_color)
+    select_output_label.pack()
+    button_select_output = tk.Button(right_control_frame, text='Select output',bg=button_color, fg=text_color, command=select_output)
+    button_select_output.pack()
+    thread_amount_label = tk.Label(right_control_frame, text='Select the number of threads', fg=text_color, bg=background_color)
+    thread_amount_label.pack()
+    thread_amount_input = tk.Entry(right_control_frame)
+    thread_amount_input.pack()'''
 
     def update_progress_bar(length, progress, total, gpu_usage, vram_usage, total_vram):
         try:
@@ -485,7 +509,7 @@ if not args['cli']:
         except:
             return
 def face_analyser_thread(frame, sw):
-    global alpha
+    global alpha, codeformer
     original_frame = frame
     if not args['cli']:
         test1 = alpha != 0
@@ -821,13 +845,12 @@ def main():
                     if runnable:
                         
                         if not isinstance(args['target_path'], int):
-                            old_index = frame_index
                             frame_index += frame_move
                             if frame_index < 1:
                                 frame_index = 1
                             elif frame_index > frame_number:
                                 frame_index = frame_number
-                            
+                            old_index = frame_index
                     if args['extract_output'] != '':
                         cv2.imwrite(os.path.join(args['extract_output'], os.path.basename(file), f"frame_{count:05d}.png"), frame)
                     if runnable == 0 and ((not runnable and not args['cli']) or args['cli']):

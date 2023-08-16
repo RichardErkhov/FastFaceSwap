@@ -123,12 +123,13 @@ class GFPGAN_onnxruntime:
         self.net_input_name = self.ort_session.get_inputs()[0].name
         _,self.net_input_channels,self.net_input_height,self.net_input_width = self.ort_session.get_inputs()[0].shape
         self.net_output_count = len(self.ort_session.get_outputs())
-        self.face_size = 512
+        self.face_size = 512 #512
         self.face_template = np.array([[192, 240], [319, 240], [257, 371]]) * (self.face_size / 512.0)
-        self.upscale_factor = 2
+        self.upscale_factor = 1
         self.affine = False
         self.affine_matrix = None
     def pre_process(self, img):
+        #img = cv2.resize(img, (self.face_size//2, self.face_size//2))
         img = cv2.resize(img, (self.face_size, self.face_size))
         img = img / 255.0
         img = img.astype('float32')
@@ -334,7 +335,7 @@ def load_generator():
     return globalsz.generator
 
 def load_read_esrgan():
-    
+    global RRDBNet, load_file_from_url, RealESRGANer, SRVGGNetCompact
     if globalsz.args['fastload']:
         from basicsr.archs.rrdbnet_arch import RRDBNet
         from basicsr.utils.download_util import load_file_from_url
@@ -406,6 +407,7 @@ arch = 'clean'
 channel_multiplier = 2
 model_path = 'GFPGANv1.4.pth'
 def load_restorer():
+    global GFPGANer
     if isinstance(globalsz.restorer, NoneType):
         
         if globalsz.args['fastload']:
