@@ -37,6 +37,7 @@ parser.add_argument('--select-face', help='change the face you want, not all fac
 parser.add_argument('--optimization', help='choose the mode of the model: fp32 (default), fp16 (smaller, might be faster), int8 (doesnt work properly on old gpus, I dont know about new once, please test. On old gpus it uses cpu)', dest='optimization', default='fp32', choices=['fp32','fp16', 'int8'])
 parser.add_argument('--fast-load', help='try to load as fast as possible, may be delays in the work, shouldnt affect the speed of processing', dest='fastload', action='store_true')
 parser.add_argument("--bbox-adjust", help='adjustements to do for the box: x1,y1 coords of left top corner and x2,y2 are bottom right. Give in the form x1xy1xx2xy2 (default: 50x50x50x50)', default='50x50x50x50',dest='bbox_adjust')
+parser.add_argument("-vcam", "--virtual-camera", help='allows to use OBS virtual camera as output source', action='store_true', dest="vcam")
 args = {}
 for name, value in vars(parser.parse_args()).items():
     args[name] = value
@@ -48,6 +49,12 @@ if args['batch'] != "" and not args['batch'].endswith(".mp4"):
 #    os.makedirs(args['extract_target'])
 if args['extract_output'] != '':
     os.makedirs(args['extract_output'])
+if args['vcam']:
+    try:
+        import pyvirtualcam
+    except:
+        print("pip install pyvirtualcam to support output to OBS virtual camera")
+        exit()
 alpha = float(args['alpha'])
 frame = None #so tkinter doesn't die 
 original_frame = None
@@ -467,7 +474,7 @@ if not args['cli']:
         root.grid_rowconfigure(0, weight=1) 
         root.grid_rowconfigure(1, weight=1)
 
-    
+    #yes, one day Im going to release that thing
     '''right_control_frame = tk.Frame(root, bg=background_color)
     right_control_frame.grid(row=0, column=3, rowspan=2, sticky="ns")
     button_start_program = tk.Button(right_control_frame, text="Add this video",bg=button_color, fg=text_color, command=lambda: finish(menu))
@@ -768,6 +775,8 @@ def main():
         #update_progress_bar( 10, 0, frame_number)
         count = -1
         frame_index = count
+        if args['vcam']:
+            cam = pyvirtualcam.Camera(width=width, height=height, fps=fps)
         with tqdm(total=frame_number) as progressbar:
             temp = []
             bbox = []
@@ -844,6 +853,9 @@ def main():
                             cv2.imshow('swapped frame', frame)
                     if runnable == 0 and ((not runnable and not args['cli']) or args['cli']) and xxs:
                         out.write(frame)
+                    
+                    if args['vcam']:
+                        cam.send(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
                     if runnable:
                         
                         if not isinstance(args['target_path'], int):
@@ -882,6 +894,8 @@ def main():
                 
                 if runnable == 0 and ((not runnable and not args['cli']) or args['cli']):
                     out.write(frame)
+                if args['vcam']:
+                    cam.send(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
                 if args['extract_output'] != '':
                     cv2.imwrite(os.path.join(args['extract_output'], os.path.basename(file), f"frame_{count:05d}.png"), frame)
                 progressbar.update(1)
