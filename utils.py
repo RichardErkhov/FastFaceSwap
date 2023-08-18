@@ -319,6 +319,8 @@ def show_error():
 def show_warning():
     messagebox.showwarning("Warning", "Camera is not properly working with experimental mode, sorry")
 
+def show_error_custom(text=''):
+    messagebox.showerror("Error", text)
 def compute_cosine_distance(emb1, emb2, allowed_distance):
     global distance
     if globalsz.args['fastload']:
