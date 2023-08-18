@@ -36,6 +36,7 @@ parser.add_argument('--codeformer-upscale', help='works with cli, the amount of 
 parser.add_argument('--select-face', help='change the face you want, not all faces. After the argument add the path to the image with face from the video', dest='selective', default='')
 parser.add_argument('--optimization', help='choose the mode of the model: fp32 (default), fp16 (smaller, might be faster), int8 (doesnt work properly on old gpus, I dont know about new once, please test. On old gpus it uses cpu)', dest='optimization', default='fp32', choices=['fp32','fp16', 'int8'])
 parser.add_argument('--fast-load', help='try to load as fast as possible, may be delays in the work, shouldnt affect the speed of processing', dest='fastload', action='store_true')
+parser.add_argument("--bbox-adjust", help='adjustements to do for the box: x1,y1 coords of left top corner and x2,y2 are bottom right. Give in the form x1xy1xx2xy2 (default: 50x50x50x50)', default='50x50x50x50',dest='bbox_adjust')
 args = {}
 for name, value in vars(parser.parse_args()).items():
     args[name] = value
@@ -192,11 +193,12 @@ if not args['cli']:
 if (args['target_path'].isdigit()):
     args['target_path'] = int(args['target_path'])
 
-
-adjust_x1 = 50
+adjust_x1, adjust_y1, adjust_x2, adjust_y2 = args['bbox_adjust'].split('x')
+adjust_x1, adjust_y1, adjust_x2, adjust_y2 = int(adjust_x1), int(adjust_y1), int(adjust_x2), int(adjust_y2)
+'''adjust_x1 = 50
 adjust_y1 = 50
 adjust_x2 = 50
-adjust_y2 = 50
+adjust_y2 = 50'''
 
 def set_adjust_value():
     global adjust_x1, adjust_y1, adjust_x2, adjust_y2
@@ -466,7 +468,7 @@ if not args['cli']:
         root.grid_rowconfigure(1, weight=1)
 
     
-    '''right_control_frame = tk.Frame(root, bg=background_color)
+    right_control_frame = tk.Frame(root, bg=background_color)
     right_control_frame.grid(row=0, column=3, rowspan=2, sticky="ns")
     button_start_program = tk.Button(right_control_frame, text="Add this video",bg=button_color, fg=text_color, command=lambda: finish(menu))
     button_start_program.pack()
@@ -487,7 +489,7 @@ if not args['cli']:
     thread_amount_label = tk.Label(right_control_frame, text='Select the number of threads', fg=text_color, bg=background_color)
     thread_amount_label.pack()
     thread_amount_input = tk.Entry(right_control_frame)
-    thread_amount_input.pack()'''
+    thread_amount_input.pack()
 
     def update_progress_bar(length, progress, total, gpu_usage, vram_usage, total_vram):
         try:

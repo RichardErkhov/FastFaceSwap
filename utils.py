@@ -101,13 +101,15 @@ def extract_frames_from_video(target_video, output_folder):
 def add_audio_from_video(video_path, audio_video_path, output_path):
     ffmpeg_cmd = [
         'ffmpeg',
+        "-an",
         '-i', video_path,
         '-i', audio_video_path,
-        '-c:v', 'copy',    # Copy video codec settings
-        '-c:a', 'copy',    # Copy audio codec settings
+        #'-c:v', 'copy',    # Copy video codec settings
+        #'-c', 'copy',    # Copy audio codec settings
+        '-map', '1:a:0?',
         '-map', '0:v:0',
-        '-map', '1:a:0',
-        '-shortest',
+        #'-acodec', 'copy',
+        #'-shortest',
         output_path
     ]
     subprocess.run(ffmpeg_cmd, check=True)
@@ -332,7 +334,7 @@ def load_generator():
         #model_path = 'generator.onnx'
         #providers = rt.get_available_providers()
         #generator = rt.InferenceSession(model_path, providers=providers)
-        globalsz.generator = tf.keras.models.load_model('model21_stage5_epoch0_step10999_res256_lr.000004.h5')#, custom_objects={'Mish': Mish})
+        globalsz.generator = tf.keras.models.load_model('complex_256_v7_stage3_12999.h5')#, custom_objects={'Mish': Mish})
     return globalsz.generator
 
 def load_read_esrgan():
