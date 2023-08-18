@@ -468,7 +468,7 @@ if not args['cli']:
         root.grid_rowconfigure(1, weight=1)
 
     
-    right_control_frame = tk.Frame(root, bg=background_color)
+    '''right_control_frame = tk.Frame(root, bg=background_color)
     right_control_frame.grid(row=0, column=3, rowspan=2, sticky="ns")
     button_start_program = tk.Button(right_control_frame, text="Add this video",bg=button_color, fg=text_color, command=lambda: finish(menu))
     button_start_program.pack()
@@ -489,7 +489,7 @@ if not args['cli']:
     thread_amount_label = tk.Label(right_control_frame, text='Select the number of threads', fg=text_color, bg=background_color)
     thread_amount_label.pack()
     thread_amount_input = tk.Entry(right_control_frame)
-    thread_amount_input.pack()
+    thread_amount_input.pack()'''
 
     def update_progress_bar(length, progress, total, gpu_usage, vram_usage, total_vram):
         try:
