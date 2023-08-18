@@ -38,16 +38,18 @@ flags implemented:
 2) gfpgan
 3) ffe (fast face enhancer)
 4) codeformer
+5) gfpgan_onnx
+6) real_esrgan
+
+--no-face-swapper: disables face swapper
 
 --experimental: experimental mode to try to optimize the perfomance of reading of frames, sometimes is faster, but requires additional modules
 
---no-face-swapper: disables face swapper
+--no-cuda: no cuda should be used (might break sometimes)
 
 --lowmem, --low-memory: attempt to make code available for people with low VRAM, might result in lower quality
 
 --batch: enables batch mode, after it provide a suffix, for example --batch="_test.mp4" will result in output %target%_test.mp4
-
---select-face: change the face you want, not all faces. After the argument add the path to the image with face from the video. (Just open video in video player, screenshot the frame and save it to file. Put this filename after --select-face argument)
 
 --extract-output-frames: extract frames from output video. After argument write the path to folder.
 
@@ -63,7 +65,15 @@ flags implemented:
 
 --codeformer-upscale: argument works with cli, the amount of upscale to apply to the frame using codeformer
 
+--select-face: change the face you want, not all faces. After the argument add the path to the image with face from the video. (Just open video in video player, screenshot the frame and save it to file. Put this filename after --select-face argument)
+
 --optimization: choose the mode of the model: fp32 (default), fp16 (smaller, might be faster), int8 (doesnt work properly on old gpus, I dont know about new once, please test. On old gpus it uses cpu)
+
+--fast-load: try to load as fast as possible, might break something sometimes  
+
+--bbox-adjust: adjustments to do for the box around the face: x1,y1 coords of left top corner and x2,y2 are bottom right. Give in the form x1xy1xx2xy2 (default: 50x50x50x50). Just try to play to understand
+
+-vcam, --virtual-camera: allows to use OBS virtual camera as output source. Please install obs to make sure it works
 
 example:
 ``` python main.py -f test.jpg -t "C:/Users/user/Desktop/video.mp4" -o output/test.mp4 --threads 12 ```
