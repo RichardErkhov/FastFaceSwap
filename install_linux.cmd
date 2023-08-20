@@ -6,6 +6,7 @@ wget https://github.com/RichardErkhov/FastFaceSwap/releases/download/model/GFPGA
 wget https://github.com/RichardErkhov/FastFaceSwap/releases/download/model/complex_256_v7_stage3_12999.h5
 wget https://github.com/RichardErkhov/FastFaceSwap/releases/download/model/GFPGANv1.4.onnx
 pip install torch torchvision torchaudio
+pip install onnxruntime-gpu
 pip install -r requirements.txt
 pip install tensorflow-gpu==2.10.1
 pip install protobuf==3.20.2
