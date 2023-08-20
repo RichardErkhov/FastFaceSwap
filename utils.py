@@ -549,9 +549,9 @@ def create_configs_for_onnx():
     listx = []
     gpu_amount = get_gpu_amount()
     if gpu_amount == -1 and not globalsz.args['apple']:
-        return ['CPUExecutionProvider',]
+        return [('CPUExecutionProvider',),]
     elif globalsz.args['apple']:
-        return ['CoreMLExecutionProvider',]
+        return [('CoreMLExecutionProvider',),]
     gpu_list = list(range(gpu_amount))
     if not globalsz.select_face_swapper_gpu == None:
         gpu_list = globalsz.select_face_swapper_gpu

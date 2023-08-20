@@ -22,7 +22,7 @@ parser.add_argument('--face-enhancer', help='face enhancer, choice works only in
 parser.add_argument('--no-face-swapper', '--no-swapper', help='disables face swapper', dest='no_faceswap', action='store_true')
 #parser.add_argument('--preview-mode', help='experimental: preview mode', dest='preview', action='store_true')
 parser.add_argument('--experimental', help='experimental mode, enables features like buffered video reader', dest='experimental', action='store_true')
-parser.add_argument('--no-cuda', help='no cuda should be used', dest='nocuda', action='store_true')
+parser.add_argument('--nocuda','--no-cuda', help='no cuda should be used', dest='nocuda', action='store_true')
 parser.add_argument('--low-memory', '--lowmem', help='low memory usage attempt', dest='lowmem', action='store_true')
 parser.add_argument('--batch', help='batch processing mode, after the argument write which suffix should the output files have', dest='batch', default='')
 #parser.add_argument('--extract-target-frames', help='extract frames from target video. After argument write the path to folder', dest='extract_target', default="")
@@ -458,6 +458,17 @@ while True:
         show_external_swapped_preview_var.set(0)
         render_button = tk.Button(left_frame, text='render', bg=button_color, fg=text_color, command=run_it_please)
         render_button.grid(row=34, column=0)
+        face_selector_var = tk.IntVar()
+        face_selector_check = ttk.Checkbutton(left_frame, text="Face selector mode", variable=face_selector_var, style="TCheckbutton")
+        face_selector_check.grid(row=35, column=0)
+        face_selector_var.set(0)
+        def unselect_face():
+            global target_embedding, old_index, args
+            args['selective'] = ''
+            target_embedding = None
+            old_index = -1
+        unselect_face_button = tk.Button(left_frame, text='unselect the face button', bg=button_color, fg=text_color, command=unselect_face)
+        unselect_face_button.grid(row=36, column=0)
         
         right_frame1 = tk.Frame(root, bg=background_color, highlightthickness=2, highlightbackground=border_color)
         right_frame2 = tk.Frame(root, bg=background_color, highlightthickness=2, highlightbackground=border_color)
@@ -494,7 +505,37 @@ while True:
             root.grid_columnconfigure(3, weight=1)
             root.grid_rowconfigure(0, weight=1) 
             root.grid_rowconfigure(1, weight=1)
-
+        def on_image_click(event):
+            global target_embedding, old_index, args
+            if face_selector_var.get() == 1:
+                image = original_image_label.image
+                image_width = image.width()
+                image_height = image.height()
+                
+                relative_x = event.x / image_width
+                relative_y = event.y / image_height
+                print(relative_x, relative_y)
+                bboxes = []
+                faces = face_analysers[0].get(original_frame)
+                for face in faces:    
+                    bboxes.append(face.bbox)
+                height, width = original_frame.shape[:2]
+                real_x = height*relative_y
+                real_y = width*relative_x
+                for bbox in bboxes:
+                    if real_y > bbox[0] and real_y < bbox[2] and real_x > bbox[1] and real_x < bbox[3]:
+                        old_index = -1
+                        this_face = original_frame[int(bbox[1]):int(bbox[3]), int(bbox[0]):int(bbox[2])]
+                        args['selective'] = True
+                        target_embedding = get_embedding(this_face)[0]
+                        cv2.imshow("cropped face", this_face)
+                        cv2.waitKey(0)
+                        try:
+                            cv2.destroyWindow("cropped face")
+                        except:
+                            break
+                        break
+        original_image_label.bind("<Button-1>", on_image_click)
         #yes, one day Im going to release that thing
         '''right_control_frame = tk.Frame(root, bg=background_color)
         right_control_frame.grid(row=0, column=3, rowspan=2, sticky="ns")
@@ -657,6 +698,12 @@ while True:
                     tk_image = cv2_image_to_tkinter(swapped_frame, sizex2, sizey2)
                     swapped_image_label.configure(image=tk_image)
                     swapped_image_label.image = tk_image
+            else:
+                    original_image_label.configure(image=None)
+                    original_image_label.image = None  # Keep a reference to prevent garbage collection
+                    swapped_image_label.configure(image=None)
+                    swapped_image_label.image = None
+
         except:
             pass
         root.after(30, frame_updater)
@@ -731,7 +778,7 @@ while True:
         button.pack()
 
     def main():
-        global runnable, args, width, height, frame_index, face_analysers,frame_move, face_swappers, source_face, progress_var, target_embedding, count, frame_number, listik, frame, original_frame,swapped_frame, cap
+        global old_index, runnable, args, width, height, frame_index, face_analysers,frame_move, face_swappers, source_face, progress_var, target_embedding, count, frame_number, listik, frame, original_frame,swapped_frame, cap
         #start = time.time()
         if not args['fastload']:
             face_swappers, face_analysers = prepare_swappers_and_analysers(args)
@@ -746,9 +793,10 @@ while True:
         vram_usage = 0
         play = 0
         if args['selective'] != '':
-            im = cv2.imread(args['selective'])
-            #im = cv2.resize(im, (640, 640))
-            target_embedding = get_embedding(im)[0]
+            if args['selective'] != True:
+                im = cv2.imread(args['selective'])
+                #im = cv2.resize(im, (640, 640))
+                target_embedding = get_embedding(im)[0]
         if args['image'] == True :
             images = []
             if args['batch'] != "":
