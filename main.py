@@ -127,7 +127,9 @@ elif args['fastload'] and not args['cli']:
 
 #    tx, tx2 = startx()
 from tqdm import tqdm
-from PIL import Image, ImageTk
+from PIL import Image
+if not args['cli']:
+    from PIL import ImageTk
 if not args['lowmem']:
     if not args['fastload']:
         import tensorflow as tf
