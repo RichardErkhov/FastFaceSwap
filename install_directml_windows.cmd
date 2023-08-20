@@ -8,7 +8,7 @@ curl --location --remote-header-name --remote-name https://github.com/RichardErk
 pip install torch-directml
 pip install -r requirements.txt
 pip install tensorflow-directml-plugin
-pip uninstall onnxruntime-gpu -q -y
+pip uninstall onnxruntime-gpu onnxruntime -q -y
 pip install onnxruntime-directml
 pip install protobuf==3.20.2
 pip uninstall opencv-python opencv-headless-python opencv-contrib-python -q -y

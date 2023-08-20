@@ -38,6 +38,7 @@ parser.add_argument('--optimization', help='choose the mode of the model: fp32 (
 parser.add_argument('--fast-load', help='try to load as fast as possible, may be delays in the work, shouldnt affect the speed of processing', dest='fastload', action='store_true')
 parser.add_argument("--bbox-adjust", help='adjustements to do for the box: x1,y1 coords of left top corner and x2,y2 are bottom right. Give in the form x1xy1xx2xy2 (default: 50x50x50x50)', default='50x50x50x50',dest='bbox_adjust')
 parser.add_argument("-vcam", "--virtual-camera", help='allows to use OBS virtual camera as output source', action='store_true', dest="vcam")
+parser.add_argument("--apple", help='just in case you are an apple user, you can finally use FFS', action='store_true', dest="apple")
 args = {}
 for name, value in vars(parser.parse_args()).items():
     args[name] = value
@@ -166,7 +167,7 @@ def select_output():
     select_output_label.config(text=f'Output filename: {args["output"]}')
 
 if not args['fastload']:
-    if not globalsz.args['nocuda']:
+    if not globalsz.args['nocuda'] or not args['apple']:
         device = torch.device(0)
         gpu_memory_total = round(torch.cuda.get_device_properties(device).total_memory / 1024**3,2)  # Convert bytes to GB
 
@@ -389,7 +390,7 @@ while True:
         usage_label1 = tk.Label(left_frame, fg=text_color, bg=background_color)
         usage_label1.grid(row=26, column=0)
         
-        if not args['nocuda']:
+        if not args['nocuda'] or not args['apple']:
             usage_label2 = tk.Label(left_frame, fg=text_color, bg=background_color)
             usage_label2.grid(row=27, column=0)
         
@@ -523,7 +524,7 @@ while True:
                     percent = round(100.0 * progress / total, 1)
                     progress_text = f'Progress: |{bar}| {percent}% {progress}/{total}'
                     progress_label['text'] = progress_text
-                if not args['nocuda']:
+                if not args['nocuda'] or not args['apple']:
                     usage_label1['text'] = f"gpu usage: {gpu_usage}%|VRAM usage: {vram_usage}/{total_vram}GB"
                     ram_usage, total_ram, cpu_usage = get_system_usage()
                     usage_label2['text'] = f"cpu usage: {cpu_usage}%|RAM usage: {ram_usage}/{total_ram}GB"
@@ -756,7 +757,7 @@ while True:
             original_threads = threading.active_count()
             image_amount = len(images)
             for it, i in tqdm(enumerate(images)):
-                if not args['nocuda']:
+                if not args['nocuda'] or not args['apple']:
                     vram_usage, gpu_usage = round(gpu_memory_total - torch.cuda.mem_get_info(device)[0] / 1024**3,2), torch.cuda.utilization(device=device)
                     listik = [it, image_amount, gpu_usage, vram_usage, gpu_memory_total]
                 else:
@@ -853,12 +854,12 @@ while True:
                                     cv2.rectangle(frame, (x1,y1), (x2,y2), color, thickness)
                         if time.time() - start > 1:
                             start = time.time()
-                            if not args['nocuda']:
+                            if not args['nocuda'] or not args['apple']:
                                 vram_usage, gpu_usage = round(gpu_memory_total - torch.cuda.mem_get_info(device)[0] / 1024**3,2), torch.cuda.utilization(device=device)
                                 progressbar.set_description(f"VRAM: {vram_usage}/{gpu_memory_total} GB, usage: {gpu_usage}%")
                         
                         if not args['cli']:
-                            if not args['nocuda']:
+                            if not args['nocuda'] or not args['apple']:
                                 listik = [count, frame_number,gpu_usage, vram_usage,gpu_memory_total]
                             else:
                                 listik = [count, frame_number, 0, 0, 0]
@@ -905,7 +906,7 @@ while True:
                                 cv2.rectangle(frame, (x1,y1), (x2,y2), color, thickness)
                     if time.time() - start > 1:
                         start = time.time()
-                        if not args['nocuda']:
+                        if not args['nocuda'] or not args['apple']:
                             vram_usage, gpu_usage = round(gpu_memory_total - torch.cuda.mem_get_info(device)[0] / 1024**3,2), torch.cuda.utilization(device=device)
                             progressbar.set_description(f"VRAM: {vram_usage}/{gpu_memory_total} GB, usage: {gpu_usage}%")
                     

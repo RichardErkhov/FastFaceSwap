@@ -16,9 +16,11 @@ def fastloadimporter():
     import torch
     import cv2
     
-    if not globalsz.args['nocuda']:
+    if not globalsz.args['nocuda'] or not globalsz.args['apple']:
         device = torch.device(0)
         gpu_memory_total = round(torch.cuda.get_device_properties(device).total_memory / 1024**3,2)  # Convert bytes to GB
+    elif globalsz.args['apple']:
+        device = torch.device('mps')
     if not globalsz.args['lowmem']:
         import tensorflow as tf
         prepare()
@@ -391,6 +393,13 @@ def load_read_esrgan():
         TILE_PAD = 10
         PRE_PAD = 0
         # Initialize restorer
+        if globalsz.args['apple']:
+            dev = torch.device('mps')
+        elif globalsz.args['nocuda']:
+            dev = torch.device('cpu')
+        else:
+            dev=torch.device(f"cuda:{globalsz.select_realesrgan_gpu}")
+
         globalsz.realeasrgan_enhancer = RealESRGANer(
             scale=netscale,
             model_path=model_path,
@@ -399,7 +408,7 @@ def load_read_esrgan():
             tile_pad=TILE_PAD,
             pre_pad=PRE_PAD,
             half= globalsz.realesrgan_fp16,
-            device=torch.device(f"cuda:{globalsz.select_realesrgan_gpu}")
+            device = dev
         )
 
     return globalsz.realeasrgan_enhancer
@@ -417,13 +426,20 @@ def load_restorer():
         
         if globalsz.args['fastload']:
             from gfpgan import GFPGANer
+            
+        if globalsz.args['apple']:
+            dev = torch.device('mps')
+        elif globalsz.args['nocuda']:
+            dev = torch.device('cpu')
+        else:
+            dev = torch.device(f"cuda:{globalsz.select_gfpgan_gpu}")
         globalsz.restorer = GFPGANer(
             model_path=model_path,
             upscale=0.8,
             arch=arch,
             channel_multiplier=channel_multiplier,
             bg_upsampler=None,
-            device = torch.device(f"cuda:{globalsz.select_gfpgan_gpu}")
+            device = dev
         )
     return globalsz.restorer
 
@@ -531,8 +547,10 @@ def get_gpu_amount():
 def create_configs_for_onnx():
     listx = []
     gpu_amount = get_gpu_amount()
-    if gpu_amount == -1:
-        return ['CPUExecutionProvider']
+    if gpu_amount == -1 and not globalsz.args['apple']:
+        return ['CPUExecutionProvider',]
+    elif globalsz.args['apple']:
+        return ['CoreMLExecutionProvider',]
     gpu_list = list(range(gpu_amount))
     if not globalsz.select_face_swapper_gpu == None:
         gpu_list = globalsz.select_face_swapper_gpu
