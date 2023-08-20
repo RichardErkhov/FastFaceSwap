@@ -272,7 +272,7 @@ while True:
         #if not args['preview']:
         #    root.geometry("1000x750")
         #else:
-        root.geometry("1000x870")
+        root.geometry("1000x970")
         root.configure(bg=background_color)
         left_frame = tk.Frame(root, bg=background_color)
         left_frame.grid(row=0, column=0, rowspan=2, sticky="ns")
