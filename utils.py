@@ -310,7 +310,7 @@ def prepare_models(args):
 
 def upscale_image(image, generator ):
     image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-    image = cv2.resize(image, (512, 512))
+    image = cv2.resize(image, (256, 256))
     image = (image / 255.0) #- 1
     image = np.expand_dims(image, axis=0).astype(np.float32)
     #output = generator.run(None, {'input': image})
