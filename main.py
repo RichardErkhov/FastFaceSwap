@@ -170,7 +170,7 @@ def select_output():
     select_output_label.config(text=f'Output filename: {args["output"]}')
 
 if not args['fastload']:
-    if not globalsz.args['nocuda'] or not args['apple']:
+    if not globalsz.args['nocuda'] and not args['apple']:
         device = torch.device(0)
         gpu_memory_total = round(torch.cuda.get_device_properties(device).total_memory / 1024**3,2)  # Convert bytes to GB
 

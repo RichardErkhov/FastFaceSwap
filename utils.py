@@ -16,7 +16,7 @@ def fastloadimporter():
     import torch
     import cv2
     
-    if not globalsz.args['nocuda'] or not globalsz.args['apple']:
+    if not globalsz.args['nocuda'] and not globalsz.args['apple']:
         device = torch.device(0)
         gpu_memory_total = round(torch.cuda.get_device_properties(device).total_memory / 1024**3,2)  # Convert bytes to GB
     elif globalsz.args['apple']:
@@ -34,7 +34,8 @@ import insightface
 import cv2
 import numpy as np
 import time
-from tkinter import messagebox
+if not globalsz.args['cli']:
+    from tkinter import messagebox
 from PIL import Image
 import os
 import psutil
