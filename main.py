@@ -67,7 +67,8 @@ swapped_frame = None
 #just a fix, sometimes speeds up things
 os.environ['OMP_NUM_THREADS'] = '1'
 globalsz.args = args
-from types import NoneType
+#from types import NoneType
+NoneType = type(None)
 import threading, os, time
 if not args['fastload']:
     from plugins.codeformer_app_cv2 import inference_app as codeformer

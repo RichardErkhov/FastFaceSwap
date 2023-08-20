@@ -38,7 +38,7 @@ from tkinter import messagebox
 from PIL import Image
 import os
 import psutil
-from types import NoneType
+NoneType = type(None)
 import sys
 #if not globalsz.args['nocuda']:
 #    torch.backends.cudnn.benchmark = True
