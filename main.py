@@ -788,7 +788,6 @@ while True:
         #    source_face_thread.start()
         #else:
         #    source_face = sorted(face_analysers[0].get(input_face), key=lambda x: x.bbox[0])[0]
-        target_embedding = None
         gpu_usage = 0
         vram_usage = 0
         play = 0
@@ -942,6 +941,10 @@ while True:
                             break
                     except KeyboardInterrupt:
                         break
+                    except Exception as e:
+                        if "main thread is not in main loop" in str(e):
+                            return
+                        print(f"HUSTON, WE HAD AN EXCEPTION, PROCEED WITH CAUTION, SEND RICHARD THIS: {e}. Line 947")
                 for i in temp:
                     bbox, frame, original_frame = i.join()
                     if not args['cli']:
@@ -1000,11 +1003,11 @@ while True:
             
             
         print("Processing finished, you may close the window now")
-        if not args['cli']:
-            root.destroy()
+        if args['cli']:
+        #    root.destroy()
             #del root
             #del menu
-        else:
+        #else:
             os._exit(0)
     ##########################
     if args['batch'] != '':
@@ -1041,5 +1044,9 @@ while True:
     finally:
         if not args['cli']:
             globalsz.source_face = None
+            try:
+                root.destroy()
+            except:
+                continue
             continue
         os._exit(0)
