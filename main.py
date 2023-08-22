@@ -882,6 +882,8 @@ while True:
                                     break
                             temp.append(ThreadWithReturnValue(target=face_analyser_thread, args=(frame,count%len(face_swappers))))
                             temp[-1].start()
+                            if count % 1000 == 999:
+                                torch.cuda.empty_cache()
                             if len(temp) < int(args['threads']) * len(face_swappers) and ret:
                                 continue
                             while len(temp) >= int(args['threads']) * len(face_swappers):
