@@ -582,7 +582,7 @@ while True:
         
         button_width = left_frame.winfo_width() // 2
         
-        label = tk.Label(left_frame, text = "frame back, frame forward, backplay, pause play", fg=text_color, bg=background_color)
+        label = tk.Label(left_frame, text = "frame back, frame forward, backplay, pause, play", fg=text_color, bg=background_color)
         label.grid(row=31, column=0, sticky="ew")
         
         button_frame = tk.Frame(left_frame, bg=background_color)
