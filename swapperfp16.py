@@ -53,7 +53,10 @@ class INSwapper():
         
         latent = np.dot(latent, self.emap)
         latent /= np.linalg.norm(latent)
-        pred = self.session.run(self.output_names, {self.input_names[0]: blob, self.input_names[1]: latent})[0]
+        start = time.time()
+        for i in range(1000):
+            pred = self.session.run(self.output_names, {self.input_names[0]: blob, self.input_names[1]: latent})[0]
+        print(time.time() - start)
         #print(latent.shape, latent.dtype, pred.shape)
         img_fake = pred.transpose((0,2,3,1))[0]
         #print("Minimum value:", np.min(img_fake))

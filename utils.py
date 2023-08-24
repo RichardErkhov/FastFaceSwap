@@ -539,6 +539,58 @@ def create_batch_cap(file):
     frame_number = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     return [cap, fps, width, height, out, name, file, frame_number]
 
+def create_new_cap(file, face_, output_, batch_post=""):
+    if globalsz.args['camera_fix'] == True:
+        cap = cv2.VideoCapture(file, cv2.CAP_DSHOW)
+    else:
+        cap = cv2.VideoCapture(file)
+    if isinstance(file, int):
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, globalsz.width)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, globalsz.height)
+    fourcc = cv2.VideoWriter_fourcc(*'H265')
+    cap.set(cv2.CAP_PROP_FOURCC, fourcc)
+    # Get the video's properties
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    name = os.path.join(output_, f"{file}{batch_post}.mp4")
+    name_temp = os.path.join(output_, f"{file}{batch_post}_temp.mp4")#f"{args['output']}_temp{args['batch']}.mp4"
+    out = cv2.VideoWriter(name_temp, fourcc, fps, (width, height))
+    frame_number = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    return {"type": 1,
+            "cap":cap,
+            "original_image":None,
+            "swapped_image":None,
+            "target_path":file,
+            "save_path":name,
+            "save_temp_path":name_temp,
+            "current_frame_index":0,
+            "old_number":-1,
+            "frame_number":frame_number,
+            "rendering":False,
+            "width":width,
+            "height":height,
+            "fps":fps,
+            "faces_to_swap":None,
+            "settings":{
+                "threads":None,
+                "enable_swapper": not globalsz.args['no_faceswap'],
+                "enable_enhancer": False,
+                "enhancer_choice": "none",
+                "bbox_adjust": [50, 50, 50, 50],
+                "codeformer_fidelity":0.1,
+                "blender":1.0,
+                "codeformer_skip_if_no_face": False,
+                "codeformer_upscale_face": True,
+                "codeformer_enhancer_background": False,
+                "codeformer_upscale_amount":1,
+                },
+            "out":out,
+            "count":-1,
+            "first_frame":get_nth_frame(cap, 0)
+            }
+
 def get_gpu_amount():
     num_devices = -1
     if torch.cuda.is_available() and globalsz.cuda:
