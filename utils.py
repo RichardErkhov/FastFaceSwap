@@ -201,12 +201,19 @@ def add_audio_from_video(video_path, audio_video_path, output_path):
         output_path
     ]
     subprocess.run(ffmpeg_cmd, check=True)
-def get_nth_frame(cap, number):
-    cap.set(cv2.CAP_PROP_POS_FRAMES, number)
+def get_nth_frame(cap, number, type=0):
+    #type 0 video
+    #type 1 camera
+    #type 2 image
+    if type == 0:
+        cap.set(cv2.CAP_PROP_POS_FRAMES, number)
     ret, frame = cap.read()
     if ret:
         return frame
     return None
+def reset_cap(cap):
+    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+    return cap
 class ThreadWithReturnValue(Thread):
     def __init__(self, group=None, target=None, name=None,
                 args=(), kwargs={}, Verbose=None):
@@ -554,8 +561,9 @@ def create_new_cap(file, face_, output_, batch_post=""):
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    name = os.path.join(output_, f"{file}{batch_post}.mp4")
-    name_temp = os.path.join(output_, f"{file}{batch_post}_temp.mp4")#f"{args['output']}_temp{args['batch']}.mp4"
+    output_filename = os.path.basename(output_)
+    name = os.path.join(output_.rstrip(output_filename).rstrip(), f"{output_filename}{batch_post}")
+    name_temp = os.path.join(output_.rstrip(output_filename).rstrip(), f"{output_filename}{batch_post}_temp.mp4")#f"{args['output']}_temp{args['batch']}.mp4"
     out = cv2.VideoWriter(name_temp, fourcc, fps, (width, height))
     frame_number = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     return {"type": 1,
@@ -586,9 +594,17 @@ def create_new_cap(file, face_, output_, batch_post=""):
                 "codeformer_enhancer_background": False,
                 "codeformer_upscale_amount":1,
                 },
+            "out_settings_for_resetting":{
+                "name_temp":name_temp,
+                "fourcc":fourcc,
+                "fps":fps,
+                "width":width,
+                "height":height,
+            },
             "out":out,
             "count":-1,
-            "first_frame":get_nth_frame(cap, 0)
+            "first_frame":get_nth_frame(cap, 0),
+            "temp": []
             }
 
 def get_gpu_amount():
@@ -663,7 +679,7 @@ def prepare_swappers_and_analysers(args):
             swappers.append(None)
 
         analysers.append(insightface.app.FaceAnalysis(name='buffalo_l',allowed_modules=["recognition", "detection"], providers=providers, session_options=sess_options))
-        analysers[idx].prepare(ctx_id=0, det_size=(256, 256)) #640, 640
+        analysers[idx].prepare(ctx_id=0, det_size=(640, 640)) #640, 640
     return swappers, analysers
 
 def download(link, filename):

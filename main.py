@@ -9,6 +9,7 @@ text_color = "#EEEEEE"
 tick_color = "#222831"
 tick_background_color = "#EEEEEE"
 border_color = "#444A53"
+selector_color = "#0E8388"
 parser = argparse.ArgumentParser()
 parser.add_argument('-f', '--face', help='use this face', dest='face', default="face.jpg")
 parser.add_argument('-t', '--target', help='replace this face. If camera, use integer like 0',default="0", dest='target_path')
@@ -427,20 +428,22 @@ while True:
         #if not args['preview']:
         #    root.geometry("1000x750")
         #else:
+        row_counter = 0
         root.geometry("1000x970")
         root.configure(bg=background_color)
         root.title("FFS")
         root.protocol("WM_DELETE_WINDOW", on_closing)
         left_frame = tk.Frame(root, bg=background_color)
         left_frame.grid(row=0, column=0, rowspan=2, sticky="ns")
-        
         faceswapper_checkbox_var = tk.IntVar(value=1)
         faceswapper_checkbox = ttk.Checkbutton(left_frame, text="Face swapper", variable=faceswapper_checkbox_var, style="TCheckbutton")
-        faceswapper_checkbox.grid(row=0, column=0)
+        faceswapper_checkbox.grid(row=row_counter, column=0)
+        row_counter += 1
         
         checkbox_var = tk.IntVar()
         checkbox = ttk.Checkbutton(left_frame, text="Face enhancer", variable=checkbox_var, style="TCheckbutton")
-        checkbox.grid(row=1, column=0)
+        checkbox.grid(row=row_counter, column=0)
+        row_counter += 1
         
         enhancer_choice = tk.StringVar(value='fastface enhancer')
         choices = ['fastface enhancer', 'gfpgan', 'codeformer', 'gfpgan onnx', "real esrgan"]
@@ -449,110 +452,27 @@ while True:
             choices.remove('fastface enhancer')
 
         dropdown = ttk.OptionMenu(left_frame, enhancer_choice, enhancer_choice.get(), *choices)
-        dropdown.grid(row=2, column=0)
+        dropdown.grid(row=row_counter, column=0)
+        row_counter += 1
 
         show_bbox_var = tk.IntVar()
         show_bbox = ttk.Checkbutton(left_frame, text="draw bounding box around faces", variable=show_bbox_var, style="TCheckbutton")
-        show_bbox.grid(row=3, column=0)
-        
-        label = tk.Label(left_frame, text="bounding box adjustment", fg=text_color, bg=background_color)
-        label.grid(row=4, column=0)
-        
-        label = tk.Label(left_frame, text="up", fg=text_color, bg=background_color)
-        label.grid(row=5, column=0)
-        
-        entry_y1 = tk.Entry(left_frame)
-        entry_y1.grid(row=6, column=0)
-        entry_y1.insert(0, adjust_y1)
-        
-        label = tk.Label(left_frame, text="right", fg=text_color, bg=background_color)
-        label.grid(row=7, column=0)
-        
-        entry_x2 = tk.Entry(left_frame)
-        entry_x2.grid(row=8, column=0)
-        entry_x2.insert(0, adjust_x2)
-        
-        label = tk.Label(left_frame, text="left", fg=text_color, bg=background_color)
-        label.grid(row=9, column=0)
-        
-        entry_x1 = tk.Entry(left_frame)
-        entry_x1.grid(row=10, column=0)
-        entry_x1.insert(0, adjust_x1)
-        
-        label = tk.Label(left_frame, text="down", fg=text_color, bg=background_color)
-        label.grid(row=11, column=0)
-        
-        entry_y2 = tk.Entry(left_frame)
-        entry_y2.grid(row=12, column=0)
-        entry_y2.insert(0, adjust_y2)
-        
-        button = tk.Button(left_frame, text="Set Values", bg=button_color, fg=text_color, command=set_adjust_value)
-        button.grid(row=13, column=0)
-        
-        label = tk.Label(left_frame, text="for these settings you need codeformer to be enabled", fg=text_color, bg=background_color)
-        label.grid(row=14, column=0)
-        
-        label = tk.Label(left_frame, text="and tick on the face enhancer", fg=text_color, bg=background_color)
-        label.grid(row=15, column=0)
-        
-        codeformer_fidelity = 0.1
-        def on_codeformer_slider_move(value):
-            global codeformer_fidelity
-            codeformer_fidelity = float(value)
-        
-        label = tk.Label(left_frame, text="Codeformer fidelity", fg=text_color, bg=background_color)
-        label.grid(row=16, column=0)
-        
-        codeformer_slider = tk.Scale(left_frame, from_=0.1, to=2.0, resolution=0.1,  orient=tk.HORIZONTAL, fg=text_color, bg=background_color, command=on_codeformer_slider_move)
-        codeformer_slider.grid(row=17, column=0)
-        
-        alpha = 0.0
-        def alpha_slider_move(value):
-            global alpha
-            alpha = float(value)
-        
-        label = tk.Label(left_frame, text="blender", fg=text_color, bg=background_color)
-        label.grid(row=18, column=0)
-        
-        alpha_slider = tk.Scale(left_frame, from_=0.0, to=1.0, resolution=0.1, fg=text_color, bg=background_color,  orient=tk.HORIZONTAL, command=alpha_slider_move)
-        alpha_slider.grid(row=19, column=0)
-        alpha_slider.set(1.0)
-        
-        codeformer_skip_if_no_face_var = tk.IntVar()
-        codeformer_skip_if_no_face = ttk.Checkbutton(left_frame, text="Skip codeformer if not face is found", variable=codeformer_skip_if_no_face_var, style="TCheckbutton")
-        codeformer_skip_if_no_face.grid(row=20, column=0)
-        
-        codeformer_upscale_face_var = tk.IntVar()
-        codeformer_upscale_face = ttk.Checkbutton(left_frame, text="Upscale face using codeformer", variable=codeformer_upscale_face_var, style="TCheckbutton")
-        codeformer_upscale_face.grid(row=21, column=0)
-        codeformer_upscale_face_var.set(1)
-        
-        codeformer_enhance_background_var = tk.IntVar()
-        codeformer_enhance_background = ttk.Checkbutton(left_frame, text="Enhance background using codeformer", variable=codeformer_enhance_background_var, style="TCheckbutton")
-        codeformer_enhance_background.grid(row=22, column=0)
-        
-        codeformer_upscale_amount_value = 1
-        def codeformer_upscale_amount_move(value):
-            global codeformer_upscale_amount_value
-            codeformer_upscale_amount_value = int(value)
-        
-        codeformer_upscale_amount = tk.Scale(left_frame, from_=1, to=3, resolution=1, fg=text_color, bg=background_color, orient=tk.HORIZONTAL, command=codeformer_upscale_amount_move)
-        codeformer_upscale_amount.grid(row=23, column=0)
-        codeformer_upscale_amount.set(1)
-        
-        label = tk.Label(left_frame, text="codeformer settings finished", fg=text_color, bg=background_color)
-        label.grid(row=24, column=0)
+        show_bbox.grid(row=row_counter, column=0)
+        row_counter += 1
         
         if not isinstance(args['target_path'], int):
             progress_label = tk.Label(left_frame, fg=text_color, bg=background_color)
-            progress_label.grid(row=25, column=0)
+            progress_label.grid(row=row_counter, column=0)
+            row_counter += 1
         
         usage_label1 = tk.Label(left_frame, fg=text_color, bg=background_color)
-        usage_label1.grid(row=26, column=0)
+        usage_label1.grid(row=row_counter, column=0)
+        row_counter += 1
         
         if not args['nocuda'] and not args['apple']:
             usage_label2 = tk.Label(left_frame, fg=text_color, bg=background_color)
-            usage_label2.grid(row=27, column=0)
+            usage_label2.grid(row=row_counter, column=0)
+            row_counter += 1
         
         #if args['preview']:
         def on_slider_move(value):
@@ -572,21 +492,26 @@ while True:
             frame_move = amount
         frame_amount = count_frames(args['target_path'])
         label = tk.Label(left_frame, text="frame number", fg=text_color, bg=background_color)
-        label.grid(row=28, column=0)
+        label.grid(row=row_counter, column=0)
+        row_counter += 1
         
         slider = tk.Scale(left_frame, from_=1, to=frame_amount, fg=text_color, bg=background_color, orient=tk.HORIZONTAL, command=on_slider_move)
-        slider.grid(row=29, column=0, sticky="ew")
+        slider.grid(row=row_counter, column=0, sticky="ew")
+        row_counter += 1
         
         frame_count_label = tk.Label(left_frame, text=f"total frames: {frame_amount}", fg=text_color, bg=background_color)
-        frame_count_label.grid(row=30, column=0, sticky="ew")
+        frame_count_label.grid(row=row_counter, column=0, sticky="ew")
+        row_counter += 1
         
         button_width = left_frame.winfo_width() // 2
         
-        label = tk.Label(left_frame, text = "frame back, frame forward, backplay, pause, play", fg=text_color, bg=background_color)
-        label.grid(row=31, column=0, sticky="ew")
+        #label = tk.Label(left_frame, text = "frame back, frame forward, backplay, pause, play", fg=text_color, bg=background_color)
+        #label.grid(row=row_counter, column=0, sticky="ew")
+        #row_counter += 1
         
         button_frame = tk.Frame(left_frame, bg=background_color)
-        button_frame.grid(row=32, column=0, pady=10, sticky="ew")
+        button_frame.grid(row=row_counter, column=0, pady=10, sticky="ew")
+        row_counter += 1
         
         frame_back_button = tk.Button(button_frame, text='<', bg=button_color, fg=text_color, width=button_width, command=lambda: edit_index(-1), anchor="center")
         frame_back_button.pack(side=tk.LEFT, fill=tk.X, expand=True)
@@ -607,26 +532,177 @@ while True:
             global count, videos, current_video
             videos[current_video]['rendering'] = True
             videos[current_video]['current_frame_index'] = 0
-            count = -1
+            videos[current_video]['count'] = -1
             render_button.config(state=tk.DISABLED)
+            stop_rendering_button.config(state=tk.ACTIVE)
             videos[current_video]['cap'].set(cv2.CAP_PROP_POS_FRAMES, 0)
+        def not_run_it_please():
+            global count, videos, current_video
+            videos[current_video]['rendering'] = False
+            videos[current_video]['current_frame_index'] = 0
+            videos[current_video]['count'] = -1
+            render_button.config(state=tk.ACTIVE)
+            stop_rendering_button.config(state=tk.DISABLED)
+            videos[current_video]['cap'].set(cv2.CAP_PROP_POS_FRAMES, 0)
+            videos[current_video]['out'].release()
+            videos[current_video]['out'] = cv2.VideoWriter(videos[current_video]['out_settings_for_resetting']['name_temp'], videos[current_video]['out_settings_for_resetting']['fourcc'], 
+                                                           videos[current_video]['out_settings_for_resetting']['fps'], (videos[current_video]['out_settings_for_resetting']['width'], videos[current_video]['out_settings_for_resetting']['height']))
+
         show_external_swapped_preview_var = tk.IntVar()
-        show_external_swapped_preview = ttk.Checkbutton(left_frame, text="Show swapped face in another window", variable=show_external_swapped_preview_var, style="TCheckbutton")
-        show_external_swapped_preview.grid(row=33, column=0)
+        show_external_swapped_preview = ttk.Checkbutton(left_frame, text="Show swapped frame in another window", variable=show_external_swapped_preview_var, style="TCheckbutton")
+        show_external_swapped_preview.grid(row=row_counter, column=0)
         show_external_swapped_preview_var.set(0)
-        render_button = tk.Button(left_frame, text='render', bg=button_color, fg=text_color, command=run_it_please)
-        render_button.grid(row=34, column=0)
-        face_selector_var = tk.IntVar()
-        face_selector_check = ttk.Checkbutton(left_frame, text="Face selector mode", variable=face_selector_var, style="TCheckbutton")
-        face_selector_check.grid(row=35, column=0)
-        face_selector_var.set(0)
+        row_counter += 1
         def unselect_face():
             global target_embedding, old_index, args, videos
             args['selective'] = ''
             target_embedding = None
             videos[current_video]['old_number'] = -1
+        face_selector_var = tk.IntVar()
+        face_selector_check = ttk.Checkbutton(left_frame, text="Face selector mode", variable=face_selector_var, style="TCheckbutton")
+        face_selector_check.grid(row=row_counter, column=0)
+        face_selector_var.set(0)
+        row_counter += 1
         unselect_face_button = tk.Button(left_frame, text='unselect the face button', bg=button_color, fg=text_color, command=unselect_face)
-        unselect_face_button.grid(row=36, column=0)
+        unselect_face_button.grid(row=row_counter, column=0)
+        row_counter += 1
+        render_button_frame = tk.Frame(left_frame, bg=background_color)
+        render_button_frame.grid(row=row_counter, column=0, pady=10, sticky="ew")
+        row_counter += 1
+        render_button = tk.Button(render_button_frame, text='render', bg=button_color, fg=text_color, command=run_it_please)
+        render_button.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        stop_rendering_button = tk.Button(render_button_frame, text='stop render', bg=button_color, fg=text_color, command=not_run_it_please)
+        stop_rendering_button.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        stop_rendering_button.config(state=tk.DISABLED)
+        def toggle_menu():
+            global menu_visible
+            if menu_visible:
+                advanced_section_frame.grid_remove()
+            else:
+                advanced_section_frame.grid(row=menu_counter, column=0, pady=10)
+            menu_visible = not menu_visible
+        show_advanced_settings = tk.Button(left_frame, text='Toggle advanced settings', bg=button_color, fg=text_color, command=toggle_menu)
+        show_advanced_settings.grid(row=row_counter, column=0)
+        row_counter += 1
+        advanced_section_frame = tk.LabelFrame(left_frame, text="Advanced settings", bg=background_color, fg=text_color)
+        advanced_section_frame.grid(row=row_counter, column=0, pady=10, sticky="nsew")
+        menu_visible = True
+        menu_counter = row_counter
+        row_counter += 1
+        
+
+
+
+        label = tk.Label(advanced_section_frame, text="bounding box adjustment", fg=text_color, bg=background_color)
+        label.grid(row=row_counter, column=0)
+        row_counter += 1
+        
+        label = tk.Label(advanced_section_frame, text="up", fg=text_color, bg=background_color)
+        label.grid(row=row_counter, column=0)
+        row_counter += 1
+        
+        entry_y1 = tk.Entry(advanced_section_frame)
+        entry_y1.grid(row=row_counter, column=0)
+        entry_y1.insert(0, adjust_y1)
+        row_counter += 1
+        
+        label = tk.Label(advanced_section_frame, text="right", fg=text_color, bg=background_color)
+        label.grid(row=row_counter, column=0)
+        row_counter += 1
+        
+        entry_x2 = tk.Entry(advanced_section_frame)
+        entry_x2.grid(row=row_counter, column=0)
+        entry_x2.insert(0, adjust_x2)
+        row_counter += 1
+        
+        label = tk.Label(advanced_section_frame, text="left", fg=text_color, bg=background_color)
+        label.grid(row=row_counter, column=0)
+        row_counter += 1
+        
+        entry_x1 = tk.Entry(advanced_section_frame)
+        entry_x1.grid(row=row_counter, column=0)
+        entry_x1.insert(0, adjust_x1)
+        row_counter += 1
+        
+        label = tk.Label(advanced_section_frame, text="down", fg=text_color, bg=background_color)
+        label.grid(row=row_counter, column=0)
+        row_counter += 1
+        
+        entry_y2 = tk.Entry(advanced_section_frame)
+        entry_y2.grid(row=row_counter, column=0)
+        entry_y2.insert(0, adjust_y2)
+        row_counter += 1
+        
+        button = tk.Button(advanced_section_frame, text="Set Values", bg=button_color, fg=text_color, command=set_adjust_value)
+        button.grid(row=row_counter, column=0)
+        row_counter += 1
+        
+        label = tk.Label(advanced_section_frame, text="for these settings you need codeformer to be enabled", fg=text_color, bg=background_color)
+        label.grid(row=row_counter, column=0)
+        row_counter += 1
+        
+        label = tk.Label(advanced_section_frame, text="and tick on the face enhancer", fg=text_color, bg=background_color)
+        label.grid(row=row_counter, column=0)
+        row_counter += 1
+        
+        codeformer_fidelity = 0.1
+        def on_codeformer_slider_move(value):
+            global codeformer_fidelity
+            codeformer_fidelity = float(value)
+        
+        label = tk.Label(advanced_section_frame, text="Codeformer fidelity", fg=text_color, bg=background_color)
+        label.grid(row=row_counter, column=0)
+        row_counter += 1
+        
+        codeformer_slider = tk.Scale(advanced_section_frame, from_=0.1, to=2.0, resolution=0.1,  orient=tk.HORIZONTAL, fg=text_color, bg=background_color, command=on_codeformer_slider_move)
+        codeformer_slider.grid(row=row_counter, column=0)
+        row_counter += 1
+        
+        alpha = 0.0
+        def alpha_slider_move(value):
+            global alpha
+            alpha = float(value)
+        
+        label = tk.Label(advanced_section_frame, text="blender", fg=text_color, bg=background_color)
+        label.grid(row=row_counter, column=0)
+        row_counter += 1
+        
+        alpha_slider = tk.Scale(advanced_section_frame, from_=0.0, to=1.0, resolution=0.1, fg=text_color, bg=background_color,  orient=tk.HORIZONTAL, command=alpha_slider_move)
+        alpha_slider.grid(row=row_counter, column=0)
+        alpha_slider.set(1.0)
+        row_counter += 1
+        
+        codeformer_skip_if_no_face_var = tk.IntVar()
+        codeformer_skip_if_no_face = ttk.Checkbutton(advanced_section_frame, text="Skip codeformer if not face is found", variable=codeformer_skip_if_no_face_var, style="TCheckbutton")
+        codeformer_skip_if_no_face.grid(row=row_counter, column=0)
+        row_counter += 1
+        
+        codeformer_upscale_face_var = tk.IntVar()
+        codeformer_upscale_face = ttk.Checkbutton(advanced_section_frame, text="Upscale face using codeformer", variable=codeformer_upscale_face_var, style="TCheckbutton")
+        codeformer_upscale_face.grid(row=row_counter, column=0)
+        codeformer_upscale_face_var.set(1)
+        row_counter += 1
+        
+        codeformer_enhance_background_var = tk.IntVar()
+        codeformer_enhance_background = ttk.Checkbutton(advanced_section_frame, text="Enhance background using codeformer", variable=codeformer_enhance_background_var, style="TCheckbutton")
+        codeformer_enhance_background.grid(row=row_counter, column=0)
+        row_counter += 1
+        
+        codeformer_upscale_amount_value = 1
+        def codeformer_upscale_amount_move(value):
+            global codeformer_upscale_amount_value
+            codeformer_upscale_amount_value = int(value)
+        
+        codeformer_upscale_amount = tk.Scale(advanced_section_frame, from_=1, to=3, resolution=1, fg=text_color, bg=background_color, orient=tk.HORIZONTAL, command=codeformer_upscale_amount_move)
+        codeformer_upscale_amount.grid(row=row_counter, column=0)
+        codeformer_upscale_amount.set(1)
+        row_counter += 1
+        
+        label = tk.Label(advanced_section_frame, text="codeformer settings finished", fg=text_color, bg=background_color)
+        label.grid(row=row_counter, column=0)
+        row_counter += 1
+        #=============================================
+        #render_button.grid(row=34, column=0)
         
         right_frame1 = tk.Frame(root, bg=background_color, highlightthickness=2, highlightbackground=border_color)
         right_frame2 = tk.Frame(root, bg=background_color, highlightthickness=2, highlightbackground=border_color)
@@ -724,36 +800,47 @@ while True:
             global videos
             videos.append(create_new_cap(args['target_path'], args["face"], args['output']))
         def delete_current_video():
-            global videos
+            global videos, current_video
             videos.pop(current_video)
+            current_video = 0
         #yes, one day Im going to release that thing
-        button_start_program = tk.Button(right_control_frame, text="Add this video",bg=button_color, fg=text_color, command=add)
-        button_start_program.grid(row=0, column=0)
-        select_face_label = tk.Label(right_control_frame, text=f'Face filename: {args["face"]}', fg=text_color, bg=background_color)
-        select_face_label.grid(row=1, column=0)
         button_select_face = tk.Button(right_control_frame, text='Select face',bg=button_color, fg=text_color, command=select_face)
-        button_select_face.grid(row=2, column=0)
-        select_target_label = tk.Label(right_control_frame, text=f'Target filename: {args["target_path"]}', fg=text_color, bg=background_color)
-        select_target_label.grid(row=3, column=0)
-        button_select_target = tk.Button(right_control_frame, text='Select target',bg=button_color, fg=text_color, command=select_target)
-        button_select_target.grid(row=4, column=0)
+        button_select_face.grid(row=0, column=0, pady=3, sticky='ew')
+        select_face_label = tk.Label(right_control_frame, text=f'Face filename: {args["face"]}', fg=text_color, bg=background_color)
+        select_face_label.grid(row=1, column=0, pady=3)
+        canvas = tk.Canvas(right_control_frame, height=2, bg=border_color, highlightthickness=0)
+        canvas.grid(row=2, column=0, columnspan=2, sticky='ew', padx=0, pady=4)
         button_select_camera = tk.Button(right_control_frame, text='run from camera',bg=button_color, fg=text_color, command=select_camera)
-        button_select_camera.grid(row=5, column=0)
-        select_output_label = tk.Label(right_control_frame, text=f'output filename: {args["output"]}', fg=text_color, bg=background_color)
-        select_output_label.grid(row=6, column=0)
+        button_select_camera.grid(row=3, column=0, pady=3, sticky='ew')
+        button_select_target = tk.Button(right_control_frame, text='Select target',bg=button_color, fg=text_color, command=select_target)
+        button_select_target.grid(row=4, column=0, pady=3, sticky='ew')
+        select_target_label = tk.Label(right_control_frame, text=f'Target filename: {args["target_path"]}', fg=text_color, bg=background_color)
+        select_target_label.grid(row=5, column=0, pady=3)
+        canvas2 = tk.Canvas(right_control_frame, height=2, bg=border_color, highlightthickness=0)
+        canvas2.grid(row=6, column=0, columnspan=2, sticky='ew', padx=0, pady=4)
         button_select_output = tk.Button(right_control_frame, text='Select output',bg=button_color, fg=text_color, command=select_output)
-        button_select_output.grid(row=7, column=0)
-        thread_amount_label = tk.Label(right_control_frame, text='Select the number of threads', fg=text_color, bg=background_color)
-        thread_amount_label.grid(row=8, column=0)
-        thread_amount_input = tk.Entry(right_control_frame)
-        thread_amount_input.grid(row=9, column=0)
+        button_select_output.grid(row=7, column=0, pady=3, sticky='ew')
+        select_output_label = tk.Label(right_control_frame, text=f'output filename: {args["output"]}', fg=text_color, bg=background_color)
+        select_output_label.grid(row=8, column=0, pady=3)
+        canvas3 = tk.Canvas(right_control_frame, height=2, bg=border_color, highlightthickness=0)
+        canvas3.grid(row=9, column=0, columnspan=2, sticky='ew', padx=0, pady=4)
+        button_start_program = tk.Button(right_control_frame, text="Add this video",bg=button_color, fg=text_color, command=add)
+        button_start_program.grid(row=10, column=0, pady=3, sticky='ew')
+        #thread_amount_label = tk.Label(right_control_frame, text='Select the number of threads', fg=text_color, bg=background_color)
+        #thread_amount_label.grid(row=8, column=0)
+        #thread_amount_input = tk.Entry(right_control_frame)
+        #thread_amount_input.grid(row=9, column=0)
         selector_frame = tk.Frame(right_control_frame, bg=background_color)
-        selector_frame.grid(row=10, column=0, sticky="ew")
+        selector_frame.grid(row=11, column=0, sticky="nsew", pady=15)
         
         Scrolledlistbox1 = ScrolledListBox(selector_frame)
-        Scrolledlistbox1.grid(row=0, column=0, sticky="ew")
+        Scrolledlistbox1.configure(background=background_color)
+        Scrolledlistbox1.selector_color = selector_color
+        Scrolledlistbox1.text_color = text_color
+        Scrolledlistbox1.grid(row=0, column=0, sticky="nsew")
+        right_control_frame.grid_rowconfigure(11, weight=10)
         button_select_output = tk.Button(right_control_frame, text='Delete selected video',bg=button_color, fg=text_color, command=delete_current_video)
-        button_select_output.grid(row=11, column=0)
+        button_select_output.grid(row=12, column=0, sticky='ew', pady=4)
         def update_progress_bar(length, progress, total, gpu_usage, vram_usage, total_vram):
             global videos
             try:
@@ -875,7 +962,7 @@ while True:
         pil_image_resized = pil_image.resize((width, height), Image.Resampling.LANCZOS)
         
         return ImageTk.PhotoImage(pil_image_resized)
-    def frame_updater():
+    def frame_updater(xx=True):
         try:
             if not isinstance(videos[current_video]['original_image'], NoneType) and not isinstance(videos[current_video]['swapped_image'], NoneType):
                     sizex1, sizey1 = right_frame1.winfo_width(), right_frame1.winfo_height()
@@ -894,7 +981,8 @@ while True:
 
         except:
             pass
-        root.after(30, frame_updater)
+        if xx:
+            root.after(30, frame_updater)
     def get_embedding(face_image):
         try:
             return face_analysers[0].get(face_image)
@@ -1027,7 +1115,7 @@ while True:
         #if not args['cli'] and not args['preview']:
         #    open_second_window()
         #for cap, fps, width, height, out, name, file, frame_number in caps:
-        while True:
+        while 1 == 1:
             while len(videos) == 0:
                 time.sleep(0.01)
             #root.after(1, update_progress_length, frame_number)
@@ -1037,7 +1125,6 @@ while True:
             if args['vcam'] and videos[current_video]["type"] == 1:
                 cam = pyvirtualcam.Camera(width=width, height=height, fps=videos[current_video]["fps"])
             progressbar = tqdm(total=videos[current_video]["frame_number"])
-            temp = []
             bbox = []
             start = time.time()
             '''if not args['preview']:
@@ -1054,40 +1141,103 @@ while True:
                     temp[-1].start()
                     count += 1'''
             xxs = True
-            videos[current_video]['old_number'] = 0
-            while True:
-                try:
-                    #print(videos[current_video]['rendering'])
-                    if videos[current_video]['rendering'] and ((videos[current_video]['rendering'] and not args['cli']) or args['cli']):
-                        
-                        videos[current_video]['count'] += 1
-                        print(videos[current_video]['count'])
-                        #if not isinstance(args['target_path'], int):
-                        videos[current_video]['current_frame_index'] = videos[current_video]['count']
-                        if videos[current_video]['count'] == 0:
-                            progressbar.reset()
-                        if args['experimental']:
-                            frame = videos[current_video]["cap"].read()
-                            if isinstance(frame, NoneType): #== None:
-                                break
+            
+            try:
+                while True:
+                    try:
+                        #print(videos[current_video]['rendering'])
+                        current_loop_video = current_video
+                        if videos[current_loop_video]['rendering'] and ((videos[current_loop_video]['rendering'] and not args['cli']) or args['cli']):
+                            
+                            videos[current_loop_video]['count'] += 1
+                            #print(videos[current_video]['count'])
+                            #if not isinstance(args['target_path'], int):
+                            videos[current_loop_video]['current_frame_index'] = videos[current_loop_video]['count']
+                            if videos[current_loop_video]['count'] == 0:
+                                progressbar.reset()
+                            if args['experimental']:
+                                frame = videos[current_loop_video]["cap"].read()
+                                if isinstance(frame, NoneType): #== None:
+                                    break
+                            else:
+                                ret, frame = videos[current_loop_video]["cap"].read()
+                                if not ret:
+                                    break
+                            #print("red cap")
+                            if videos[current_loop_video]['count'] % 1000 == 999:
+                                torch.cuda.empty_cache()
+                            videos[current_loop_video]['temp'].append(ThreadWithReturnValue(target=face_analyser_thread, args=(frame,videos[current_loop_video]['count']%len(face_swappers))))
+                            videos[current_loop_video]['temp'][-1].start()
+                            if len(videos[current_loop_video]['temp']) < int(args['threads']) * len(face_swappers) and ret:
+                                continue
+                            while len(videos[current_loop_video]['temp']) >= int(args['threads']) * len(face_swappers):
+                                bbox, videos[current_loop_video]["swapped_image"], videos[current_loop_video]['original_image'] = videos[current_loop_video]['temp'].pop(0).join()
+                            xxs = True
                         else:
-                            ret, frame = videos[current_video]["cap"].read()
-                            if not ret:
-                                break
-                        print("red cap")
-                        if videos[current_video]['count'] % 1000 == 999:
-                            torch.cuda.empty_cache()
-                        temp.append(ThreadWithReturnValue(target=face_analyser_thread, args=(frame,videos[current_video]['count']%len(face_swappers))))
-                        temp[-1].start()
-                        if len(temp) < int(args['threads']) * len(face_swappers) and ret:
-                            continue
-                        while len(temp) >= int(args['threads']) * len(face_swappers):
-                            bbox, videos[current_video]["swapped_image"], videos[current_video]['original_image'] = temp.pop(0).join()
-                        xxs = True
-                    else:
-                        if not videos[current_video]['current_frame_index'] == videos[current_video]['old_number']:
-                            bbox, videos[current_video]["swapped_image"], videos[current_video]['original_image'] = face_analyser_thread(get_nth_frame(videos[current_video]["cap"], videos[current_video]['current_frame_index']-1), count%len(face_swappers))
-                        xxs = False
+                            if not videos[current_loop_video]['current_frame_index'] == videos[current_loop_video]['old_number']:
+                                bbox, videos[current_loop_video]["swapped_image"], videos[current_loop_video]['original_image'] = face_analyser_thread(get_nth_frame(videos[current_loop_video]["cap"], videos[current_loop_video]['current_frame_index']-1), count%len(face_swappers))
+                            xxs = False
+                        if not args['cli']:
+                            if show_bbox_var.get() == 1:
+                                for i in bbox: 
+                                    x1, y1, x2, y2 = int(i[0]),int(i[1]),int(i[2]),int(i[3])
+                                    x1 = max(x1-adjust_x1, 0)
+                                    y1 = max(y1-adjust_y1, 0)
+                                    x2 = min(x2+adjust_x2, width)
+                                    y2 = min(y2+adjust_y2, height)
+                                    color = (0, 255, 0)  # Green color (BGR format)
+                                    thickness = 2  # Line thickness
+                                    cv2.rectangle(videos[current_loop_video]["swapped_image"], (x1,y1), (x2,y2), color, thickness)
+                        if time.time() - start > 1:
+                            start = time.time()
+                            if not args['nocuda'] and not args['apple']:
+                                vram_usage, gpu_usage = round(gpu_memory_total - torch.cuda.mem_get_info(device)[0] / 1024**3,2), torch.cuda.utilization(device=device)
+                                progressbar.set_description(f"VRAM: {vram_usage}/{gpu_memory_total} GB, usage: {gpu_usage}%")
+                        
+                        if not args['cli']:
+                            if not args['nocuda'] and not args['apple']:
+                                listik = [videos[current_loop_video]['count'], videos[current_loop_video]["frame_number"],gpu_usage, vram_usage,gpu_memory_total]
+                            else:
+                                listik = [videos[current_loop_video]['count'], videos[current_loop_video]["frame_number"], 0, 0, 0]
+                            #videos[current_video]['swapped_image'] = videos[current_video]["swapped_image"]
+                            #cv2.imshow('Face Detection', frame)
+                        
+                        if not args['cli']:
+                            if show_external_swapped_preview_var.get() == 1:
+                                cv2.imshow('swapped frame', videos[current_loop_video]["swapped_image"])
+                        if videos[current_loop_video]['rendering'] and ((videos[current_loop_video]['rendering'] and not args['cli']) or args['cli']) and xxs:
+                            videos[current_loop_video]['out'].write(videos[current_loop_video]["swapped_image"])
+                        
+                        if args['vcam']:
+                            cam.send(cv2.cvtColor(videos[current_loop_video]["swapped_image"], cv2.COLOR_RGB2BGR))
+                        if not videos[current_loop_video]['rendering']:
+                            if not isinstance(videos[current_loop_video]['target_path'], int):
+                                videos[current_loop_video]['old_number'] = videos[current_loop_video]['current_frame_index']
+                                videos[current_loop_video]['current_frame_index'] += frame_move
+                                if videos[current_loop_video]['current_frame_index'] < 1:
+                                    videos[current_loop_video]['current_frame_index'] = 1
+                                elif videos[current_loop_video]['current_frame_index'] > videos[current_loop_video]["frame_number"]:
+                                    videos[current_loop_video]['current_frame_index'] = videos[current_loop_video]["frame_number"]
+                            else:videos[current_loop_video]['current_frame_index'] = 0
+
+                            
+                        if args['extract_output'] != '':
+                            cv2.imwrite(os.path.join(args['extract_output'], os.path.basename(videos[current_loop_video]["target_path"]), f"frame_{videos[current_loop_video]['count']:05d}.png"), videos[current_loop_video]["swapped_image"])
+                        if videos[current_loop_video]['rendering'] and ((videos[current_loop_video]['rendering'] and not args['cli']) or args['cli']):
+                            progressbar.update(1)
+                        if cv2.waitKey(1) & 0xFF == ord('q'):
+                            break
+                    except KeyboardInterrupt:
+                        break
+                    except Exception as e:
+                        if "main thread is not in main loop" in str(e):
+                            return
+                        if "list index out of range" in str(e):
+                            print('index')
+                            break
+                        print(f"HUSTON, WE HAD AN EXCEPTION, PROCEED WITH CAUTION, SEND RICHARD THIS: {e}. Line 947")
+                for i in videos[current_video]['temp']:
+                    bbox, videos[current_video]["swapped_image"], videos[current_video]['original_image'] = i.join()
                     if not args['cli']:
                         if show_bbox_var.get() == 1:
                             for i in bbox: 
@@ -1105,98 +1255,53 @@ while True:
                             vram_usage, gpu_usage = round(gpu_memory_total - torch.cuda.mem_get_info(device)[0] / 1024**3,2), torch.cuda.utilization(device=device)
                             progressbar.set_description(f"VRAM: {vram_usage}/{gpu_memory_total} GB, usage: {gpu_usage}%")
                     
-                    if not args['cli']:
-                        if not args['nocuda'] and not args['apple']:
-                            listik = [videos[current_video]['count'], videos[current_video]["frame_number"],gpu_usage, vram_usage,gpu_memory_total]
-                        else:
-                            listik = [videos[current_video]['count'], videos[current_video]["frame_number"], 0, 0, 0]
-                        #videos[current_video]['swapped_image'] = videos[current_video]["swapped_image"]
-                        #cv2.imshow('Face Detection', frame)
-                    
+                    if videos[current_video]['rendering'] and ((videos[current_video]['rendering'] and not args['cli']) or args['cli']):
+                        videos[current_video]['out'].write(videos[current_video]["swapped_image"])
+                    if args['vcam']:
+                        cam.send(cv2.cvtColor(videos[current_video]["swapped_image"], cv2.COLOR_RGB2BGR))
+                    if args['extract_output'] != '':
+                        cv2.imwrite(os.path.join(args['extract_output'], os.path.basename(videos[current_video]["target_path"]), f"frame_{videos[current_video]['count']:05d}.png"), videos[current_video]["swapped_image"])
+                    progressbar.update(1)
                     if not args['cli']:
                         if show_external_swapped_preview_var.get() == 1:
                             cv2.imshow('swapped frame', videos[current_video]["swapped_image"])
-                    if videos[current_video]['rendering'] and ((videos[current_video]['rendering'] and not args['cli']) or args['cli']) and xxs:
-                        videos[current_video]['out'].write(videos[current_video]["swapped_image"])
-                    
-                    if args['vcam']:
-                        cam.send(cv2.cvtColor(videos[current_video]["swapped_image"], cv2.COLOR_RGB2BGR))
                     if not videos[current_video]['rendering']:
-                        if not isinstance(videos[current_video]['target_path'], int):
-                            videos[current_video]['old_number'] = videos[current_video]['current_frame_index']
-                            videos[current_video]['current_frame_index'] += frame_move
-                            if videos[current_video]['current_frame_index'] < 1:
-                                videos[current_video]['current_frame_index'] = 1
-                            elif videos[current_video]['current_frame_index'] > videos[current_video]["frame_number"]:
-                                videos[current_video]['current_frame_index'] = videos[current_video]["frame_number"]
+                        old_number = videos[current_video]['current_frame_index']
+                        while videos[current_video]['current_frame_index'] == old_number:
+                            time.sleep(0.01)
                         
-                    if args['extract_output'] != '':
-                        cv2.imwrite(os.path.join(args['extract_output'], os.path.basename(videos[current_video]["target_path"]), f"frame_{videos[current_video]['count']:05d}.png"), videos[current_video]["swapped_image"])
-                    if videos[current_video]['rendering'] and ((videos[current_video]['rendering'] and not args['cli']) or args['cli']):
-                        progressbar.update(1)
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         break
-                except KeyboardInterrupt:
-                    break
-                #except Exception as e:
-                #    if "main thread is not in main loop" in str(e):
-                #        return
-                #    print(f"HUSTON, WE HAD AN EXCEPTION, PROCEED WITH CAUTION, SEND RICHARD THIS: {e}. Line 947")
-            for i in temp:
-                bbox, videos[current_video]["swapped_image"], videos[current_video]['original_image'] = i.join()
-                if not args['cli']:
-                    if show_bbox_var.get() == 1:
-                        for i in bbox: 
-                            x1, y1, x2, y2 = int(i[0]),int(i[1]),int(i[2]),int(i[3])
-                            x1 = max(x1-adjust_x1, 0)
-                            y1 = max(y1-adjust_y1, 0)
-                            x2 = min(x2+adjust_x2, width)
-                            y2 = min(y2+adjust_y2, height)
-                            color = (0, 255, 0)  # Green color (BGR format)
-                            thickness = 2  # Line thickness
-                            cv2.rectangle(videos[current_video]["swapped_image"], (x1,y1), (x2,y2), color, thickness)
-                if time.time() - start > 1:
-                    start = time.time()
-                    if not args['nocuda'] and not args['apple']:
-                        vram_usage, gpu_usage = round(gpu_memory_total - torch.cuda.mem_get_info(device)[0] / 1024**3,2), torch.cuda.utilization(device=device)
-                        progressbar.set_description(f"VRAM: {vram_usage}/{gpu_memory_total} GB, usage: {gpu_usage}%")
-                
-                if videos[current_video]['rendering'] and ((videos[current_video]['rendering'] and not args['cli']) or args['cli']):
-                    videos[current_video]['out'].write(videos[current_video]["swapped_image"])
-                if args['vcam']:
-                    cam.send(cv2.cvtColor(videos[current_video]["swapped_image"], cv2.COLOR_RGB2BGR))
-                if args['extract_output'] != '':
-                    cv2.imwrite(os.path.join(args['extract_output'], os.path.basename(videos[current_video]["target_path"]), f"frame_{videos[current_video]['count']:05d}.png"), videos[current_video]["swapped_image"])
-                progressbar.update(1)
-                if not args['cli']:
-                    if show_external_swapped_preview_var.get() == 1:
-                        cv2.imshow('swapped frame', videos[current_video]["swapped_image"])
-                if not videos[current_video]['rendering']:
-                    old_number = videos[current_video]['current_frame_index']
-                    while videos[current_video]['current_frame_index'] == old_number:
-                        time.sleep(0.01)
-                    
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    break
-            videos[current_video]['out'].release()
-            videos[current_video]["cap"].release()
-            cv2.destroyAllWindows()
-            progressbar.close()
-            if args['batch'] != '':
-                try:
-                    add_audio_from_video(videos[current_video]["save_temp_path"],videos[current_video]["target_path"], videos[current_video]['save_path'])
-                    os.remove(videos[current_video]["save_temp_path"])
-                except Exception as e:
-                    print(f"SOMETHING WENT WRONG DURING THE ADDING OF THE AUDIO TO THE VIDEO!file: {os.path.join(args['output'], file)}, error:{e}")
-            else:
-                if not isinstance(args['target_path'], int):
+                videos[current_video]['out'].release()
+                #videos[current_video]["cap"].release()
+                cv2.destroyAllWindows()
+                progressbar.close()
+                if args['batch'] != '':
                     try:
-                        add_audio_from_video(videos[current_video]["save_temp_path"], videos[current_video]["target_path"], videos[current_video]['save_path'])
+                        add_audio_from_video(videos[current_video]["save_temp_path"],videos[current_video]["target_path"], videos[current_video]['save_path'])
                         os.remove(videos[current_video]["save_temp_path"])
                     except Exception as e:
-                        print(f"failed to add audio: {e}")
-            break
-                
+                        print(f"SOMETHING WENT WRONG DURING THE ADDING OF THE AUDIO TO THE VIDEO!file: {videos[current_video]['save_path']}, error:{e}")
+                else:
+                    if not isinstance(args['target_path'], int):
+                        try:
+                            add_audio_from_video(videos[current_video]["save_temp_path"], videos[current_video]["target_path"], videos[current_video]['save_path'])
+                            os.remove(videos[current_video]["save_temp_path"])
+                        except Exception as e:
+                            print(f"failed to add audio: {e}")
+                videos[current_video]["cap"] = reset_cap(videos[current_video]["cap"])
+                if not args['cli']:
+                    not_run_it_please()
+                continue
+        
+            except KeyboardInterrupt:
+                break
+            except Exception as e:
+                #if "main thread is not in main loop" in str(e):
+                #    return
+                #if "list index out of range" in str(e):
+                #    break
+                print(f"HUSTON, WE HAD AN EXCEPTION, PROCEED WITH CAUTION, SEND RICHARD THIS: {e}. Line 1229")
             
             
         print("Processing finished, you may close the window now")
@@ -1236,26 +1341,39 @@ while True:
                 root.after(300, update_gui, old_index)
             def update_selector(old_len = 0):
                 global current_video
-                new_len = len(videos)
-                if old_len != new_len: 
-                    #Scrolledlistbox1.delete('0','end')
-                    #for i in videos:
-                    #    Scrolledlistbox1.insert("end", i['target_path'])
-                    Scrolledlistbox1.delete_all()
-                    v = []
-                    for i in videos:
-                        v.append([os.path.basename(i['target_path']), Image.fromarray(cv2.cvtColor(i["first_frame"], cv2.COLOR_BGR2RGB))])
-                    Scrolledlistbox1.insert_data(v)
-                    root.update_idletasks()
-                #sel = Scrolledlistbox1.curselection()
-                #if len(sel) != 0:
-                #    sel = sel[0]
-                #else:
-                #    sel = 0
-                sel = Scrolledlistbox1.get_selected_id()
-                if sel == None:
-                    sel = 0
-                current_video = sel
+                try:
+                    new_len = len(videos)
+                    if old_len != new_len: 
+                        #Scrolledlistbox1.delete('0','end')
+                        #for i in videos:
+                        #    Scrolledlistbox1.insert("end", i['target_path'])
+                        Scrolledlistbox1.delete_all()
+                        v = []
+                        for i in videos:
+                            v.append([os.path.basename(str(i['target_path'])), Image.fromarray(cv2.cvtColor(i["first_frame"], cv2.COLOR_BGR2RGB))])
+                        Scrolledlistbox1.insert_data(v)
+                        root.update_idletasks()
+                        if len(videos) > 0:
+                            videos[current_video]['old_number'] = -1
+                        frame_updater(False)
+                    #sel = Scrolledlistbox1.curselection()
+                    #if len(sel) != 0:
+                    #    sel = sel[0]
+                    #else:
+                    #    sel = 0
+                    sel = Scrolledlistbox1.get_selected_id()
+                    if sel == None:
+                        sel = 0
+                    if sel != current_video:
+                        if videos[sel]['rendering'] == True:
+                            render_button.config(state=tk.DISABLED)
+                            stop_rendering_button.config(state=tk.ACTIVE)
+                        else:
+                            render_button.config(state=tk.ACTIVE)
+                            stop_rendering_button.config(state=tk.DISABLED)
+                    current_video = sel
+                except:
+                    pass
                 root.after(30, update_selector, new_len)
             update_gui()
             update_selector()
