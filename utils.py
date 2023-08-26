@@ -546,7 +546,7 @@ def create_batch_cap(file):
     frame_number = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     return [cap, fps, width, height, out, name, file, frame_number]
 
-def create_new_cap(file, face_, output_, batch_post=""):
+def create_new_cap(file, face_, output_, face_analyser,batch_post=""):
     if globalsz.args['camera_fix'] == True:
         cap = cv2.VideoCapture(file, cv2.CAP_DSHOW)
     else:
@@ -566,6 +566,7 @@ def create_new_cap(file, face_, output_, batch_post=""):
     name_temp = os.path.join(output_.rstrip(output_filename).rstrip(), f"{output_filename}{batch_post}_temp.mp4")#f"{args['output']}_temp{args['batch']}.mp4"
     out = cv2.VideoWriter(name_temp, fourcc, fps, (width, height))
     frame_number = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    face_ = sorted(face_analyser.get(cv2.imread(face_)), key=lambda x: x.bbox[0])[0]
     return {"type": 1,
             "cap":cap,
             "original_image":None,
@@ -604,7 +605,8 @@ def create_new_cap(file, face_, output_, batch_post=""):
             "out":out,
             "count":-1,
             "first_frame":get_nth_frame(cap, 0),
-            "temp": []
+            "temp": [],
+            "face":face_
             }
 
 def get_gpu_amount():

@@ -128,15 +128,15 @@ def kill_ui():
     global root
     root.destroy()
 def get_source_face():
-    if isinstance(globalsz.source_face, NoneType):
-        try:
-            globalsz.source_face = sorted(face_analysers[0].get(cv2.imread(args['face'])), key=lambda x: x.bbox[0])[0]
-        except Exception as e:
-            print(f"HUSTON, WE HAVE A PROBLEM. WE CAN'T DETECT THE FACE IN THE IMAGE YOU PROVIDED! ERROR: {e}")
-            if not args['cli']:
-                show_error_custom(text = f"HUSTON, WE HAVE A PROBLEM. WE CAN'T DETECT THE FACE IN THE IMAGE YOU PROVIDED! ERROR: {e}")
-                kill_ui()
-    return globalsz.source_face
+    #if isinstance(globalsz.source_face, NoneType):
+        #try:
+            #globalsz.source_face = sorted(face_analysers[0].get(cv2.imread(args['face'])), key=lambda x: x.bbox[0])[0]
+        #except Exception as e:
+        #    print(f"HUSTON, WE HAVE A PROBLEM. WE CAN'T DETECT THE FACE IN THE IMAGE YOU PROVIDED! ERROR: {e}")
+        #    if not args['cli']:
+        #        show_error_custom(text = f"HUSTON, WE HAVE A PROBLEM. WE CAN'T DETECT THE FACE IN THE IMAGE YOU PROVIDED! ERROR: {e}")
+        #        kill_ui()
+    return videos[current_video]['face']#globalsz.source_face
 def start_swapper(sw):
     import pickle
     with open('ll.pkl', 'rb') as file:
@@ -584,12 +584,13 @@ while True:
         show_advanced_settings = tk.Button(left_frame, text='Toggle advanced settings', bg=button_color, fg=text_color, command=toggle_menu)
         show_advanced_settings.grid(row=row_counter, column=0)
         row_counter += 1
+        
         advanced_section_frame = tk.LabelFrame(left_frame, text="Advanced settings", bg=background_color, fg=text_color)
         advanced_section_frame.grid(row=row_counter, column=0, pady=10, sticky="nsew")
         menu_visible = True
         menu_counter = row_counter
         row_counter += 1
-        
+        toggle_menu()
 
 
 
@@ -701,14 +702,19 @@ while True:
         label = tk.Label(advanced_section_frame, text="codeformer settings finished", fg=text_color, bg=background_color)
         label.grid(row=row_counter, column=0)
         row_counter += 1
+        expander = tk.Label(left_frame, text=f"⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀", fg=text_color, bg=background_color)
+        expander.grid(row=row_counter, column=0, sticky="ew")
+        row_counter += 1
+        
         #=============================================
         #render_button.grid(row=34, column=0)
         
         right_frame1 = tk.Frame(root, bg=background_color, highlightthickness=2, highlightbackground=border_color)
         right_frame2 = tk.Frame(root, bg=background_color, highlightthickness=2, highlightbackground=border_color)
-        original_image_label = tk.Label(right_frame1, text="Image 1 Placeholder")
-        swapped_image_label = tk.Label(right_frame2, text="Image 2 Placeholder")
-
+        original_image_label = tk.Label(right_frame1, text="Original frame placeholder")
+        swapped_image_label = tk.Label(right_frame2, text="Swapped frame placeholder")
+        right_frame1.grid_propagate(False)
+        right_frame2.grid_propagate(False)
         if mode == 1:
             # Side by side configuration
             right_frame1.grid(row=0, column=1, sticky="nsew")
@@ -798,7 +804,7 @@ while True:
         right_control_frame.grid(row=0, column=3, rowspan=2, sticky="ns")
         def add():
             global videos
-            videos.append(create_new_cap(args['target_path'], args["face"], args['output']))
+            videos.append(create_new_cap(args['target_path'], args["face"], args['output'], face_analysers[0]))
         def delete_current_video():
             global videos, current_video
             videos.pop(current_video)
@@ -1052,6 +1058,31 @@ while True:
         label.pack()
         button = tk.Button(second_window, text='Start', command=run_it_please)
         button.pack()
+
+    def open_video_settings():
+        
+        button_select_face = tk.Button(right_control_frame, text='Select face',bg=button_color, fg=text_color, command=select_face)
+        button_select_face.grid(row=0, column=0, pady=3, sticky='ew')
+        select_face_label = tk.Label(right_control_frame, text=f'Face filename: {args["face"]}', fg=text_color, bg=background_color)
+        select_face_label.grid(row=1, column=0, pady=3)
+        canvas = tk.Canvas(right_control_frame, height=2, bg=border_color, highlightthickness=0)
+        canvas.grid(row=2, column=0, columnspan=2, sticky='ew', padx=0, pady=4)
+        button_select_camera = tk.Button(right_control_frame, text='run from camera',bg=button_color, fg=text_color, command=select_camera)
+        button_select_camera.grid(row=3, column=0, pady=3, sticky='ew')
+        button_select_target = tk.Button(right_control_frame, text='Select target',bg=button_color, fg=text_color, command=select_target)
+        button_select_target.grid(row=4, column=0, pady=3, sticky='ew')
+        select_target_label = tk.Label(right_control_frame, text=f'Target filename: {args["target_path"]}', fg=text_color, bg=background_color)
+        select_target_label.grid(row=5, column=0, pady=3)
+        canvas2 = tk.Canvas(right_control_frame, height=2, bg=border_color, highlightthickness=0)
+        canvas2.grid(row=6, column=0, columnspan=2, sticky='ew', padx=0, pady=4)
+        button_select_output = tk.Button(right_control_frame, text='Select output',bg=button_color, fg=text_color, command=select_output)
+        button_select_output.grid(row=7, column=0, pady=3, sticky='ew')
+        select_output_label = tk.Label(right_control_frame, text=f'output filename: {args["output"]}', fg=text_color, bg=background_color)
+        select_output_label.grid(row=8, column=0, pady=3)
+        canvas3 = tk.Canvas(right_control_frame, height=2, bg=border_color, highlightthickness=0)
+        canvas3.grid(row=9, column=0, columnspan=2, sticky='ew', padx=0, pady=4)
+        button_start_program = tk.Button(right_control_frame, text="Add this video",bg=button_color, fg=text_color, command=add)
+        button_start_program.grid(row=10, column=0, pady=3, sticky='ew')
 
     def main():
         global current_video, videos,old_index, args, width, height, frame_index, face_analysers,frame_move, face_swappers, source_face, progress_var, target_embedding, count, frame_number, listik, frame, cap
