@@ -546,7 +546,7 @@ def create_batch_cap(file):
     frame_number = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     return [cap, fps, width, height, out, name, file, frame_number]
 
-def create_new_cap(file, face_, output_, face_analyser,batch_post=""):
+def create_new_cap(file, face_, output_,batch_post=""):
     if globalsz.args['camera_fix'] == True:
         cap = cv2.VideoCapture(file, cv2.CAP_DSHOW)
     else:
@@ -566,7 +566,7 @@ def create_new_cap(file, face_, output_, face_analyser,batch_post=""):
     name_temp = os.path.join(output_.rstrip(output_filename).rstrip(), f"{output_filename}{batch_post}_temp.mp4")#f"{args['output']}_temp{args['batch']}.mp4"
     out = cv2.VideoWriter(name_temp, fourcc, fps, (width, height))
     frame_number = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    face_ = sorted(face_analyser.get(cv2.imread(face_)), key=lambda x: x.bbox[0])[0]
+    #face_ = 
     return {"type": 1,
             "cap":cap,
             "original_image":None,
@@ -676,12 +676,15 @@ def prepare_swappers_and_analysers(args):
                     from swapperfp16 import get_model
                 swappers.append(get_model("inswapper_128.quant.onnx", session_options=sess_options, providers=providers))
             else:
-                swappers.append(insightface.model_zoo.get_model("inswapper_128.onnx", session_options=sess_options, providers=providers))
-        else:
+                
+                if globalsz.args['fastload']:
+                    from swapperfp16 import get_model
+                swappers.append(get_model("inswapper_128.onnx", session_options=sess_options, providers=providers))
+        else: #insightface.model_zoo.
             swappers.append(None)
 
         analysers.append(insightface.app.FaceAnalysis(name='buffalo_l',allowed_modules=["recognition", "detection"], providers=providers, session_options=sess_options))
-        analysers[idx].prepare(ctx_id=0, det_size=(640, 640)) #640, 640
+        analysers[idx].prepare(ctx_id=0, det_size=(256, 256)) #640, 640
     return swappers, analysers
 
 def download(link, filename):

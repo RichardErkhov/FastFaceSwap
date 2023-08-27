@@ -75,6 +75,7 @@ globalsz.lowmem = args['lowmem']
 from utils import *
 videos = []
 current_video = 0 #id of video
+target_embedding = None
 '''
 how video is
 types:
@@ -128,6 +129,7 @@ def kill_ui():
     global root
     root.destroy()
 def get_source_face():
+    global current_video
     #if isinstance(globalsz.source_face, NoneType):
         #try:
             #globalsz.source_face = sorted(face_analysers[0].get(cv2.imread(args['face'])), key=lambda x: x.bbox[0])[0]
@@ -136,7 +138,7 @@ def get_source_face():
         #    if not args['cli']:
         #        show_error_custom(text = f"HUSTON, WE HAVE A PROBLEM. WE CAN'T DETECT THE FACE IN THE IMAGE YOU PROVIDED! ERROR: {e}")
         #        kill_ui()
-    return videos[current_video]['face']#globalsz.source_face
+    return videos[current_video]['face'] #globalsz.source_face
 def start_swapper(sw):
     import pickle
     with open('ll.pkl', 'rb') as file:
@@ -434,7 +436,7 @@ while True:
         root.title("FFS")
         root.protocol("WM_DELETE_WINDOW", on_closing)
         left_frame = tk.Frame(root, bg=background_color)
-        left_frame.grid(row=0, column=0, rowspan=2, sticky="ns")
+        left_frame.grid(row=0, column=3, rowspan=2, sticky="ns")
         faceswapper_checkbox_var = tk.IntVar(value=1)
         faceswapper_checkbox = ttk.Checkbutton(left_frame, text="Face swapper", variable=faceswapper_checkbox_var, style="TCheckbutton")
         faceswapper_checkbox.grid(row=row_counter, column=0)
@@ -566,14 +568,6 @@ while True:
         unselect_face_button = tk.Button(left_frame, text='unselect the face button', bg=button_color, fg=text_color, command=unselect_face)
         unselect_face_button.grid(row=row_counter, column=0)
         row_counter += 1
-        render_button_frame = tk.Frame(left_frame, bg=background_color)
-        render_button_frame.grid(row=row_counter, column=0, pady=10, sticky="ew")
-        row_counter += 1
-        render_button = tk.Button(render_button_frame, text='render', bg=button_color, fg=text_color, command=run_it_please)
-        render_button.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        stop_rendering_button = tk.Button(render_button_frame, text='stop render', bg=button_color, fg=text_color, command=not_run_it_please)
-        stop_rendering_button.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        stop_rendering_button.config(state=tk.DISABLED)
         def toggle_menu():
             global menu_visible
             if menu_visible:
@@ -590,7 +584,6 @@ while True:
         menu_visible = True
         menu_counter = row_counter
         row_counter += 1
-        toggle_menu()
 
 
 
@@ -659,7 +652,7 @@ while True:
         codeformer_slider.grid(row=row_counter, column=0)
         row_counter += 1
         
-        alpha = 0.0
+        alpha = 1.0
         def alpha_slider_move(value):
             global alpha
             alpha = float(value)
@@ -704,6 +697,11 @@ while True:
         row_counter += 1
         expander = tk.Label(left_frame, text=f"⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀", fg=text_color, bg=background_color)
         expander.grid(row=row_counter, column=0, sticky="ew")
+        row_counter += 1
+        occluder_checkbox_var = tk.IntVar()
+        occluder_checkbox = ttk.Checkbutton(advanced_section_frame, text="Use occluder", variable=occluder_checkbox_var, style="TCheckbutton")
+        occluder_checkbox.grid(row=row_counter, column=0)
+        occluder_checkbox_var.set(1)
         row_counter += 1
         
         #=============================================
@@ -801,10 +799,11 @@ while True:
         root.bind("<Right>", right_arrow_click)
         root.bind("<space>", space_click)
         right_control_frame = tk.Frame(root, bg=background_color)
-        right_control_frame.grid(row=0, column=3, rowspan=2, sticky="ns")
+        right_control_frame.grid(row=0, column=0, rowspan=2, sticky="ns")
         def add():
             global videos
-            videos.append(create_new_cap(args['target_path'], args["face"], args['output'], face_analysers[0]))
+            facex = sorted(face_analysers[0].get(cv2.imread(args["face"])), key=lambda x: x.bbox[0])[0]
+            videos.append(create_new_cap(args['target_path'], facex, args['output'],))
         def delete_current_video():
             global videos, current_video
             videos.pop(current_video)
@@ -816,20 +815,20 @@ while True:
         select_face_label.grid(row=1, column=0, pady=3)
         canvas = tk.Canvas(right_control_frame, height=2, bg=border_color, highlightthickness=0)
         canvas.grid(row=2, column=0, columnspan=2, sticky='ew', padx=0, pady=4)
-        button_select_camera = tk.Button(right_control_frame, text='run from camera',bg=button_color, fg=text_color, command=select_camera)
-        button_select_camera.grid(row=3, column=0, pady=3, sticky='ew')
         button_select_target = tk.Button(right_control_frame, text='Select target',bg=button_color, fg=text_color, command=select_target)
-        button_select_target.grid(row=4, column=0, pady=3, sticky='ew')
+        button_select_target.grid(row=3, column=0, pady=3, sticky='ew')
         select_target_label = tk.Label(right_control_frame, text=f'Target filename: {args["target_path"]}', fg=text_color, bg=background_color)
-        select_target_label.grid(row=5, column=0, pady=3)
+        select_target_label.grid(row=4, column=0, pady=3)
         canvas2 = tk.Canvas(right_control_frame, height=2, bg=border_color, highlightthickness=0)
-        canvas2.grid(row=6, column=0, columnspan=2, sticky='ew', padx=0, pady=4)
+        canvas2.grid(row=5, column=0, columnspan=2, sticky='ew', padx=0, pady=4)
         button_select_output = tk.Button(right_control_frame, text='Select output',bg=button_color, fg=text_color, command=select_output)
-        button_select_output.grid(row=7, column=0, pady=3, sticky='ew')
+        button_select_output.grid(row=6, column=0, pady=3, sticky='ew')
         select_output_label = tk.Label(right_control_frame, text=f'output filename: {args["output"]}', fg=text_color, bg=background_color)
-        select_output_label.grid(row=8, column=0, pady=3)
+        select_output_label.grid(row=7, column=0, pady=3)
         canvas3 = tk.Canvas(right_control_frame, height=2, bg=border_color, highlightthickness=0)
-        canvas3.grid(row=9, column=0, columnspan=2, sticky='ew', padx=0, pady=4)
+        canvas3.grid(row=8, column=0, columnspan=2, sticky='ew', padx=0, pady=4)
+        button_select_camera = tk.Button(right_control_frame, text='run from camera',bg=button_color, fg=text_color, command=select_camera)
+        button_select_camera.grid(row=9, column=0, pady=3, sticky='ew')
         button_start_program = tk.Button(right_control_frame, text="Add this video",bg=button_color, fg=text_color, command=add)
         button_start_program.grid(row=10, column=0, pady=3, sticky='ew')
         #thread_amount_label = tk.Label(right_control_frame, text='Select the number of threads', fg=text_color, bg=background_color)
@@ -847,6 +846,14 @@ while True:
         right_control_frame.grid_rowconfigure(11, weight=10)
         button_select_output = tk.Button(right_control_frame, text='Delete selected video',bg=button_color, fg=text_color, command=delete_current_video)
         button_select_output.grid(row=12, column=0, sticky='ew', pady=4)
+        render_button_frame = tk.Frame(right_control_frame, bg=background_color)
+        render_button_frame.grid(row=13, column=0, pady=10, sticky="ew")
+        row_counter += 1
+        render_button = tk.Button(render_button_frame, text='render', bg=button_color, fg=text_color, command=run_it_please)
+        render_button.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        stop_rendering_button = tk.Button(render_button_frame, text='stop render', bg=button_color, fg=text_color, command=not_run_it_please)
+        stop_rendering_button.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        stop_rendering_button.config(state=tk.DISABLED)
         def update_progress_bar(length, progress, total, gpu_usage, vram_usage, total_vram):
             global videos
             try:
@@ -890,7 +897,11 @@ while True:
                     if faceswapper_checkbox_var.get() == True:
                         ttest1=True
                 if not args['no_faceswap'] and (ttest1 == True or args['cli']):
-                    frame = face_swappers[sw].get(frame, face, get_source_face(), paste_back=True)
+                    occluder_works= False
+                    if not args['cli']:
+                        occluder_works = int(occluder_checkbox_var.get())
+                        print(occluder_works)
+                    frame = face_swappers[sw].get(frame, face, get_source_face(),occluder_works, paste_back=True)
                 try:
                     test1 = checkbox_var.get() == 1 
                     test2 = not enhancer_choice.get() == "codeformer"
@@ -1260,13 +1271,17 @@ while True:
                             break
                     except KeyboardInterrupt:
                         break
-                    except Exception as e:
-                        if "main thread is not in main loop" in str(e):
-                            return
-                        if "list index out of range" in str(e):
-                            print('index')
-                            break
-                        print(f"HUSTON, WE HAD AN EXCEPTION, PROCEED WITH CAUTION, SEND RICHARD THIS: {e}. Line 947")
+                    #except Exception as e:
+                    #    if "main thread is not in main loop" in str(e):
+                    #        return
+                    #    if "list index out of range" in str(e):
+                    #        print('index')
+                    #        break
+                    #    if "'NoneType' object has no attribute 'shape'" in str(e) and isinstance(videos[current_loop_video]['target_path'], int):
+                    #        videos[current_loop_video]['cap'] = cv2.VideoCapture(videos[current_loop_video]['target_path'])
+                    #        videos[current_loop_video]['cap'].set(cv2.CAP_PROP_FRAME_WIDTH, globalsz.width)
+                    #        videos[current_loop_video]['cap'].set(cv2.CAP_PROP_FRAME_HEIGHT, globalsz.height)
+                    #    print(f"HUSTON, WE HAD AN EXCEPTION, PROCEED WITH CAUTION, SEND RICHARD THIS: {e}. Line 947")
                 for i in videos[current_video]['temp']:
                     bbox, videos[current_video]["swapped_image"], videos[current_video]['original_image'] = i.join()
                     if not args['cli']:
@@ -1327,12 +1342,12 @@ while True:
         
             except KeyboardInterrupt:
                 break
-            except Exception as e:
+            #except Exception as e:
                 #if "main thread is not in main loop" in str(e):
                 #    return
                 #if "list index out of range" in str(e):
                 #    break
-                print(f"HUSTON, WE HAD AN EXCEPTION, PROCEED WITH CAUTION, SEND RICHARD THIS: {e}. Line 1229")
+            #    print(f"HUSTON, WE HAD AN EXCEPTION, PROCEED WITH CAUTION, SEND RICHARD THIS: {e}. Line 1229")
             
             
         print("Processing finished, you may close the window now")
@@ -1409,6 +1424,7 @@ while True:
             update_gui()
             update_selector()
             frame_updater()
+            root.after(1000, toggle_menu)
             root.mainloop()
         else:
             main()
