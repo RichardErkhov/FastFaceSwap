@@ -752,7 +752,7 @@ while True:
                 
                 relative_x = event.x / image_width
                 relative_y = event.y / image_height
-                print(relative_x, relative_y)
+                #print(relative_x, relative_y)
                 bboxes = []
                 faces = face_analysers[0].get(videos[current_video]['original_image'])
                 for face in faces:    
@@ -900,7 +900,7 @@ while True:
                     occluder_works= False
                     if not args['cli']:
                         occluder_works = int(occluder_checkbox_var.get())
-                        print(occluder_works)
+                        #print(occluder_works)
                     frame = face_swappers[sw].get(frame, face, get_source_face(),occluder_works, paste_back=True)
                 try:
                     test1 = checkbox_var.get() == 1 
@@ -950,7 +950,7 @@ while True:
             else:
                 test1 = args['alpha'] != 1
             if test1:
-                print(alpha)
+                #print(alpha)
                 frame = merge_face(frame, original_frame, alpha)
             return bboxes, frame, original_frame
         return [], frame, original_frame
@@ -1271,17 +1271,17 @@ while True:
                             break
                     except KeyboardInterrupt:
                         break
-                    #except Exception as e:
-                    #    if "main thread is not in main loop" in str(e):
-                    #        return
-                    #    if "list index out of range" in str(e):
-                    #        print('index')
-                    #        break
-                    #    if "'NoneType' object has no attribute 'shape'" in str(e) and isinstance(videos[current_loop_video]['target_path'], int):
-                    #        videos[current_loop_video]['cap'] = cv2.VideoCapture(videos[current_loop_video]['target_path'])
-                    #        videos[current_loop_video]['cap'].set(cv2.CAP_PROP_FRAME_WIDTH, globalsz.width)
-                    #        videos[current_loop_video]['cap'].set(cv2.CAP_PROP_FRAME_HEIGHT, globalsz.height)
-                    #    print(f"HUSTON, WE HAD AN EXCEPTION, PROCEED WITH CAUTION, SEND RICHARD THIS: {e}. Line 947")
+                    except Exception as e:
+                        if "main thread is not in main loop" in str(e):
+                            return
+                        if "list index out of range" in str(e):
+                            print('index')
+                            break
+                        if "'NoneType' object has no attribute 'shape'" in str(e) and isinstance(videos[current_loop_video]['target_path'], int):
+                            videos[current_loop_video]['cap'] = cv2.VideoCapture(videos[current_loop_video]['target_path'])
+                            videos[current_loop_video]['cap'].set(cv2.CAP_PROP_FRAME_WIDTH, globalsz.width)
+                            videos[current_loop_video]['cap'].set(cv2.CAP_PROP_FRAME_HEIGHT, globalsz.height)
+                        print(f"HUSTON, WE HAD AN EXCEPTION, PROCEED WITH CAUTION, SEND RICHARD THIS: {e}. Line 947")
                 for i in videos[current_video]['temp']:
                     bbox, videos[current_video]["swapped_image"], videos[current_video]['original_image'] = i.join()
                     if not args['cli']:
@@ -1342,12 +1342,12 @@ while True:
         
             except KeyboardInterrupt:
                 break
-            #except Exception as e:
-                #if "main thread is not in main loop" in str(e):
-                #    return
+            except Exception as e:
+                if "main thread is not in main loop" in str(e):
+                    return
                 #if "list index out of range" in str(e):
                 #    break
-            #    print(f"HUSTON, WE HAD AN EXCEPTION, PROCEED WITH CAUTION, SEND RICHARD THIS: {e}. Line 1229")
+                print(f"HUSTON, WE HAD AN EXCEPTION, PROCEED WITH CAUTION, SEND RICHARD THIS: {e}. Line 1229")
             
             
         print("Processing finished, you may close the window now")

@@ -30,6 +30,11 @@ def load_clip_model():
     clip_session.to(device)    
     return clip_session, device
 def load_occluder_model():            
+    
+    exists = os.path.exists('weights/occluder.ckpt')
+    if not exists:
+        os.makedirs('weights', exist_ok=True)
+        download(f"https://github.com/RichardErkhov/FastFaceSwap/releases/download/model/occluder.ckpt", 'weights/occluder.ckpt')
     to_tensor = transforms.ToTensor()
     model = smp.Unet(encoder_name='resnet18', encoder_weights='imagenet', classes=1, activation=None)
 
