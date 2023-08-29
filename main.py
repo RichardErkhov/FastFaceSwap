@@ -552,11 +552,55 @@ while True:
             videos[current_video]['out'] = cv2.VideoWriter(videos[current_video]['out_settings_for_resetting']['name_temp'], videos[current_video]['out_settings_for_resetting']['fourcc'], 
                                                            videos[current_video]['out_settings_for_resetting']['fps'], (videos[current_video]['out_settings_for_resetting']['width'], videos[current_video]['out_settings_for_resetting']['height']))
 
-        show_external_swapped_preview_var = tk.IntVar()
+        
+        original_image_second_open = False
+        swapped_image_second_open = False
+
+        def on_closing_original_image_second():
+            global original_image_second_window, original_image_second_open
+            original_image_second_open = False
+            original_image_second_window.destroy()
+        def on_closing_swapped_image_second():
+            global swapped_image_second_window, swapped_image_second_open
+            swapped_image_second_open = False
+            swapped_image_second_window.destroy()
+        def open_original_image_second():
+            global original_image_label_second, original_image_second_window,original_image_second_open
+            if not original_image_second_open:
+                original_image_second_window = tk.Toplevel(root, bg=background_color)
+                original_image_second_window.protocol("WM_DELETE_WINDOW", on_closing_original_image_second)
+                original_image_second_window.geometry("640x360")
+                original_image_second_window.title("Original image")
+                original_image_label_second = tk.Label(original_image_second_window,bg=background_color)
+                original_image_label_second.pack(fill=tk.BOTH, expand=True)
+                original_image_second_open = True
+            else:
+                original_image_second_window.lift()
+        def open_swapped_image_second():
+            global swapped_image_label_second, swapped_image_second_window ,swapped_image_second_open
+            if not swapped_image_second_open:
+                swapped_image_second_window = tk.Toplevel(root, bg=background_color)
+                swapped_image_second_window.protocol("WM_DELETE_WINDOW", on_closing_swapped_image_second)
+                swapped_image_second_window.geometry("640x360")
+                swapped_image_second_window.title("Swapped image")
+                swapped_image_label_second = tk.Label(swapped_image_second_window,bg=background_color)
+                swapped_image_label_second.pack(fill=tk.BOTH, expand=True)
+                swapped_image_second_open = True
+            else:
+                swapped_image_second_window.lift()
+        open_frames_frame = tk.Frame(left_frame, bg=background_color)
+        open_frames_frame.grid(row=row_counter, column=0, pady=10, sticky="ew")
+        row_counter += 1
+        open_original_image_second_button = tk.Button(open_frames_frame, text='open original preview', bg=button_color, fg=text_color, command=open_original_image_second)
+        open_original_image_second_button.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        open_swapped_image_second_button = tk.Button(open_frames_frame, text='open swapped preview', bg=button_color, fg=text_color, command=open_swapped_image_second)
+        open_swapped_image_second_button.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        '''show_external_swapped_preview_var = tk.IntVar()
         show_external_swapped_preview = ttk.Checkbutton(left_frame, text="Show swapped frame in another window", variable=show_external_swapped_preview_var, style="TCheckbutton")
         show_external_swapped_preview.grid(row=row_counter, column=0)
         show_external_swapped_preview_var.set(0)
-        row_counter += 1
+        row_counter += 1'''
         def unselect_face():
             global target_embedding, old_index, args, videos
             args['selective'] = ''
@@ -616,16 +660,16 @@ while True:
         up_frame = tk.Frame(advanced_section_frame, bg=background_color)
         up_frame.grid(row=row_counter, column=0, rowspan=1, sticky="ew")
         row_counter += 1
-        label = tk.Label(up_frame, text="up", fg=text_color, bg=background_color)
-        label.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        label = tk.Label(up_frame, text="up", fg=text_color, bg=background_color, width=10)
+        label.pack(side=tk.LEFT, fill=tk.X)#, expand=True)
         entry_y1 = tk.Entry(up_frame)
         entry_y1.pack(side=tk.LEFT, fill=tk.X, expand=True)
         entry_y1.insert(0, adjust_y1)
         
         right_frame = tk.Frame(advanced_section_frame, bg=background_color)
         right_frame.grid(row=row_counter, column=0, rowspan=1, sticky="ew")
-        label = tk.Label(right_frame, text="right", fg=text_color, bg=background_color)
-        label.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        label = tk.Label(right_frame, text="right", fg=text_color, bg=background_color, width=10)
+        label.pack(side=tk.LEFT, fill=tk.X)#, expand=True)
         row_counter += 1
         
         entry_x2 = tk.Entry(right_frame)
@@ -634,8 +678,8 @@ while True:
         
         left__frame = tk.Frame(advanced_section_frame, bg=background_color)
         left__frame.grid(row=row_counter, column=0, rowspan=1, sticky="ew")
-        label = tk.Label(left__frame, text="left", fg=text_color, bg=background_color)
-        label.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        label = tk.Label(left__frame, text="left", fg=text_color, bg=background_color, width=10)
+        label.pack(side=tk.LEFT, fill=tk.X)#, expand=True)
         row_counter += 1
         
         entry_x1 = tk.Entry(left__frame)
@@ -644,8 +688,8 @@ while True:
         
         down_frame = tk.Frame(advanced_section_frame, bg=background_color)
         down_frame.grid(row=row_counter, column=0, rowspan=1, sticky="ew")
-        label = tk.Label(down_frame, text="down", fg=text_color, bg=background_color)
-        label.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        label = tk.Label(down_frame, text="down", fg=text_color, bg=background_color, width=10)
+        label.pack(side=tk.LEFT, fill=tk.X)#, expand=True)
         row_counter += 1
         
         entry_y2 = tk.Entry(down_frame)
@@ -784,11 +828,10 @@ while True:
         
         #=============================================
         #render_button.grid(row=34, column=0)
-        
-        right_frame1 = tk.Frame(root, bg=background_color, highlightthickness=2, highlightbackground=border_color)
-        right_frame2 = tk.Frame(root, bg=background_color, highlightthickness=2, highlightbackground=border_color)
-        original_image_label = tk.Label(right_frame1, text="Original frame placeholder")
-        swapped_image_label = tk.Label(right_frame2, text="Swapped frame placeholder")
+        right_frame1 = tk.LabelFrame(root, text="Original frame", bg=background_color, highlightthickness=2, highlightbackground=border_color, fg=text_color)
+        right_frame2 = tk.LabelFrame(root, text="Swapped frame", bg=background_color, highlightthickness=2, highlightbackground=border_color, fg=text_color)
+        original_image_label = tk.Label(right_frame1, bg=background_color)#, text="Original frame placeholder")
+        swapped_image_label = tk.Label(right_frame2, bg=background_color)#, text="Swapped frame placeholder")
         right_frame1.grid_propagate(False)
         right_frame2.grid_propagate(False)
         if mode == 1:
@@ -802,17 +845,17 @@ while True:
             # Configure column weights
             root.grid_columnconfigure(0, weight=1)
             root.grid_columnconfigure(1, weight=4)
-            root.grid_columncooriginal_imagenfigure(2, weight=4)
+            root.grid_columnconfigure(2, weight=4)
             root.grid_columnconfigure(3, weight=1)
             root.grid_rowconfigure(0, weight=1)
 
         else:
             # Stacked configuration
             right_frame1.grid(row=0, column=1, columnspan=2, sticky="nsew")
-            original_image_label.grid(sticky="nsew", padx=15, pady=15)
+            original_image_label.grid(sticky="nsew", padx=15, pady=10)
 
             right_frame2.grid(row=1, column=1, columnspan=2, sticky="nsew")
-            swapped_image_label.grid(sticky="nsew", padx=15, pady=15)
+            swapped_image_label.grid(sticky="nsew", padx=15, pady=10)
             
             # Configure column and row weights
             root.grid_columnconfigure(0, weight=1)
@@ -1044,13 +1087,13 @@ while True:
             return bboxes, frame, original_frame
         return [], frame, original_frame
 
-    def cv2_image_to_tkinter(cv2_image, target_width, target_height):
+    def cv2_image_to_tkinter(cv2_image, target_width, target_height, pad_width=30, pad_height=50):
         """Convert a cv2 image to a tkinter compatible format and resize it to fit target dimensions."""
         cv2_img_rgb = cv2.cvtColor(cv2_image, cv2.COLOR_BGR2RGB)
         pil_image = Image.fromarray(cv2_img_rgb)
 
-        target_width -= 30
-        target_height -= 30
+        target_width -= pad_width
+        target_height -= pad_height
         
         # Resize the image while maintaining its aspect ratio
         image_aspect = pil_image.width / pil_image.height
@@ -1079,11 +1122,28 @@ while True:
                     tk_image = cv2_image_to_tkinter(videos[current_video]['swapped_image'], sizex2, sizey2)
                     swapped_image_label.configure(image=tk_image)
                     swapped_image_label.image = tk_image
+                    if original_image_second_open:
+                        sizex1, sizey1 = original_image_label_second.winfo_width(), original_image_label_second.winfo_height()
+                        tk_imagex = cv2_image_to_tkinter(videos[current_video]['original_image'], sizex1, sizey1,0,0)
+                        original_image_label_second.configure(image=tk_imagex)
+                        original_image_label_second.image = tk_imagex  # Keep a reference to prevent garbage collection
+                    if swapped_image_second_open:
+                        sizex2, sizey2 = swapped_image_second_window.winfo_width(), swapped_image_second_window.winfo_height()
+                        tk_image = cv2_image_to_tkinter(videos[current_video]['swapped_image'], sizex2, sizey2, 0,0)
+                        swapped_image_label_second.configure(image=tk_image)
+                        swapped_image_label_second.image = tk_image  # Keep a reference to prevent garbage collection
+                        
             else:
                     original_image_label.configure(image=None)
                     original_image_label.image = None  # Keep a reference to prevent garbage collection
                     swapped_image_label.configure(image=None)
                     swapped_image_label.image = None
+                    if original_image_second_open:
+                        original_image_label_second.configure(image=None)
+                        original_image_label_second.image = None  # Keep a reference to prevent garbage collection
+                    if swapped_image_second_open:
+                        swapped_image_label_second.configure(image=None)
+                        swapped_image_label_second.image = None  # Keep a reference to prevent garbage collection
 
         except:
             pass
@@ -1335,9 +1395,9 @@ while True:
                             #videos[current_video]['swapped_image'] = videos[current_video]["swapped_image"]
                             #cv2.imshow('Face Detection', frame)
                         
-                        if not args['cli']:
-                            if show_external_swapped_preview_var.get() == 1:
-                                cv2.imshow('swapped frame', videos[current_loop_video]["swapped_image"])
+                        #if not args['cli']:
+                        #    if show_external_swapped_preview_var.get() == 1:
+                        #        cv2.imshow('swapped frame', videos[current_loop_video]["swapped_image"])
                         if videos[current_loop_video]['rendering'] and ((videos[current_loop_video]['rendering'] and not args['cli']) or args['cli']) and xxs:
                             videos[current_loop_video]['out'].write(videos[current_loop_video]["swapped_image"])
                         
@@ -1399,9 +1459,9 @@ while True:
                     if args['extract_output'] != '':
                         cv2.imwrite(os.path.join(args['extract_output'], os.path.basename(videos[current_video]["target_path"]), f"frame_{videos[current_video]['count']:05d}.png"), videos[current_video]["swapped_image"])
                     progressbar.update(1)
-                    if not args['cli']:
-                        if show_external_swapped_preview_var.get() == 1:
-                            cv2.imshow('swapped frame', videos[current_video]["swapped_image"])
+                    #if not args['cli']:
+                    #    if show_external_swapped_preview_var.get() == 1:
+                    #        cv2.imshow('swapped frame', videos[current_video]["swapped_image"])
                     if not videos[current_video]['rendering']:
                         old_number = videos[current_video]['current_frame_index']
                         while videos[current_video]['current_frame_index'] == old_number:

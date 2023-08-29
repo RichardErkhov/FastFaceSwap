@@ -49,7 +49,7 @@ class ScrolledListBox(AutoScroll, tk.Canvas):
         self.selector_color = "blue"
         self.text_color = "white"
     def _update_layout(self, event):
-        canvas_width = self.winfo_width()
+        canvas_width = self.winfo_width() - 8
         if canvas_width < self.min_canvas_width:
             return
 
@@ -81,7 +81,7 @@ class ScrolledListBox(AutoScroll, tk.Canvas):
             
             # Bind the clickable rectangle to the click event
 
-            text_id = self.create_text(half_canvas_width // 2, y_offset + max_height // 2, anchor='center', text=text, fill=self.text_color)
+            text_id = self.create_text(half_canvas_width // 2, y_offset + max_height // 2, anchor='center', text=text, fill=self.text_color, width=(half_canvas_width))
             image_id = self.create_image(half_canvas_width + (half_canvas_width // 2), y_offset + max_height // 2, anchor='center', image=image_tk)
             # Create the clickable rectangle
             clickable_rect = self.create_rectangle(0, y_offset, canvas_width, y_offset + max_height + self.spacing, fill='', outline='')
