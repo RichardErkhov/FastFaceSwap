@@ -848,7 +848,7 @@ while True:
             faces_listbox2.grid(row=0, column=0, sticky="nsew")
             face_chooser_window.update_idletasks()
             # Load some sample image pairs
-            left_image_paths = ["face.jpg", "1621244089249.jfif", "rick.png"]
+            left_image_paths = ["face.jpg", "rick.png"]
             right_image_paths = left_image_paths[::-1]
             
             right_images = [Image.open(image_path) for image_path in left_image_paths]
@@ -859,6 +859,8 @@ while True:
             faces_listbox.insert_data(image_pair_list)
             faces_listbox2.insert_data(image_pair_list)
             faces_listbox2.add_item("banana", right_images[0])
+            faces_listbox2.add_item("banana2", right_images[0])
+            faces_listbox2.add_item("banana3", right_images[0])
             #for i in image_pair_list:
             #    faces_listbox2.add_item(*i)
             #faces_listbox2.insert_data(image_pair_list)

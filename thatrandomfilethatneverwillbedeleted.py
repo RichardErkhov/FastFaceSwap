@@ -1,6 +1,7 @@
 from tkinter import ttk, Tk
 from PIL import Image, ImageTk
 import tkinter as tk
+import copy
 class AutoScroll(object):
     '''Configure the scrollbars for a widget.'''
     def __init__(self, master):
@@ -361,7 +362,7 @@ class ScrolledListBox_horizontal(AutoScroll_horizontal, tk.Canvas):
         self._update_layout(None)
 
     def insert_data(self, data_list):
-        self.data_list = data_list
+        self.data_list = copy.deepcopy(data_list)  # Make a deep copy
         self.original_images.clear()
         self._update_layout(None)
 
