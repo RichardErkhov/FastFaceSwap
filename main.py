@@ -1052,6 +1052,7 @@ while True:
             test1 = alpha != 0
         else:
             test1 = args['alpha'] != 0
+        _upscaled = False
         if test1:        
             faces = face_analysers[sw].get(frame)
             bboxes = []
@@ -1106,6 +1107,7 @@ while True:
                             facex = realesrgan_enhance(facer)
                         facex = cv2.resize(facex, ((x2-x1), (y2-y1)))
                         frame[y1:y2, x1:x2] = facex
+                        _upscaled = True
                     except Exception as e:
                         print(f"ee: {e}")
             if not args['cli']:
@@ -1126,7 +1128,8 @@ while True:
                 test1 = args['alpha'] != 1
             if test1:
                 #print(alpha)
-                frame = merge_face(frame, swapped_frame, alpha2)
+                if _upscaled:
+                    frame = merge_face(frame, swapped_frame, alpha2)
             if not args['cli']:
                 test1 = alpha != 1
             else:
@@ -1417,6 +1420,15 @@ while True:
                         else:
                             
                             if not videos[current_loop_video]['current_frame_index'] == videos[current_loop_video]['old_number'] or int(realtime_updater_var.get()):
+                                #if not videos[current_loop_video]['rendering']:
+                                if not isinstance(videos[current_loop_video]['target_path'], int):
+                                    videos[current_loop_video]['old_number'] = videos[current_loop_video]['current_frame_index']
+                                    videos[current_loop_video]['current_frame_index'] += frame_move
+                                    if videos[current_loop_video]['current_frame_index'] < 1:
+                                        videos[current_loop_video]['current_frame_index'] = 1
+                                    elif videos[current_loop_video]['current_frame_index'] > videos[current_loop_video]["frame_number"]:
+                                        videos[current_loop_video]['current_frame_index'] = videos[current_loop_video]["frame_number"]
+                                else:videos[current_loop_video]['current_frame_index'] = 0
                                 bbox, videos[current_loop_video]["swapped_image"], videos[current_loop_video]['original_image'] = face_analyser_thread(get_nth_frame(videos[current_loop_video]["cap"], videos[current_loop_video]['current_frame_index']-1), count%len(face_swappers))
                             xxs = False
                         if not args['cli']:
@@ -1454,15 +1466,6 @@ while True:
                         
                         if args['vcam']:
                             cam.send(cv2.cvtColor(videos[current_loop_video]["swapped_image"], cv2.COLOR_RGB2BGR))
-                        if not videos[current_loop_video]['rendering']:
-                            if not isinstance(videos[current_loop_video]['target_path'], int):
-                                videos[current_loop_video]['old_number'] = videos[current_loop_video]['current_frame_index']
-                                videos[current_loop_video]['current_frame_index'] += frame_move
-                                if videos[current_loop_video]['current_frame_index'] < 1:
-                                    videos[current_loop_video]['current_frame_index'] = 1
-                                elif videos[current_loop_video]['current_frame_index'] > videos[current_loop_video]["frame_number"]:
-                                    videos[current_loop_video]['current_frame_index'] = videos[current_loop_video]["frame_number"]
-                            else:videos[current_loop_video]['current_frame_index'] = 0
 
                             
                         if args['extract_output'] != '':
