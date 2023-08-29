@@ -799,7 +799,7 @@ while True:
             # Configure column weights
             root.grid_columnconfigure(0, weight=1)
             root.grid_columnconfigure(1, weight=4)
-            root.grid_columnconfigure(2, weight=4)
+            root.grid_columncooriginal_imagenfigure(2, weight=4)
             root.grid_columnconfigure(3, weight=1)
             root.grid_rowconfigure(0, weight=1)
 
@@ -951,7 +951,7 @@ while True:
                 return
     def face_analyser_thread(frame, sw):
         global alpha, codeformer
-        original_frame = frame
+        original_frame = frame.copy()
         if not args['cli']:
             test1 = alpha != 0
         else:
@@ -1062,9 +1062,9 @@ while True:
             if not isinstance(videos[current_video]['original_image'], NoneType) and not isinstance(videos[current_video]['swapped_image'], NoneType):
                     sizex1, sizey1 = right_frame1.winfo_width(), right_frame1.winfo_height()
                     sizex2, sizey2 = right_frame2.winfo_width(), right_frame2.winfo_height()
-                    tk_image = cv2_image_to_tkinter(videos[current_video]['original_image'], sizex1, sizey1)
-                    original_image_label.configure(image=tk_image)
-                    original_image_label.image = tk_image  # Keep a reference to prevent garbage collection
+                    tk_imagex = cv2_image_to_tkinter(videos[current_video]['original_image'], sizex1, sizey1)
+                    original_image_label.configure(image=tk_imagex)
+                    original_image_label.image = tk_imagex  # Keep a reference to prevent garbage collection
                     tk_image = cv2_image_to_tkinter(videos[current_video]['swapped_image'], sizex2, sizey2)
                     swapped_image_label.configure(image=tk_image)
                     swapped_image_label.image = tk_image
