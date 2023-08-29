@@ -76,6 +76,8 @@ from utils import *
 videos = []
 current_video = 0 #id of video
 target_embedding = None
+clip_neg_prompt = ""
+clip_pos_prompt = ""
 '''
 how video is
 types:
@@ -226,7 +228,7 @@ def on_closing():
 
 while True:
     if not args['cli']:
-        from thatrandomfilethatneverwillbedeleted import ScrolledListBox
+        from thatrandomfilethatneverwillbedeleted import ScrolledListBox, ScrolledImageList
         import tkinter as tk
         from tkinter import ttk
         from tkinter.filedialog import asksaveasfilename, askdirectory, askopenfilename
@@ -409,7 +411,7 @@ while True:
                 return sz"""
 
         root = tk.Tk()
-
+        root.state('zoomed')
         style = ttk.Style()
         # Set the theme to "clam"
         style.theme_use("clam")
@@ -575,6 +577,11 @@ while True:
             else:
                 advanced_section_frame.grid(row=menu_counter, column=0, pady=10)
             menu_visible = not menu_visible
+        occluder_checkbox_var = tk.IntVar()
+        occluder_checkbox = ttk.Checkbutton(left_frame, text="Use occluder", variable=occluder_checkbox_var, style="TCheckbutton")
+        occluder_checkbox.grid(row=row_counter, column=0)
+        occluder_checkbox_var.set(1)
+        row_counter += 1
         show_advanced_settings = tk.Button(left_frame, text='Toggle advanced settings', bg=button_color, fg=text_color, command=toggle_menu)
         show_advanced_settings.grid(row=row_counter, column=0)
         row_counter += 1
@@ -590,42 +597,45 @@ while True:
         label = tk.Label(advanced_section_frame, text="bounding box adjustment", fg=text_color, bg=background_color)
         label.grid(row=row_counter, column=0)
         row_counter += 1
-        
-        label = tk.Label(advanced_section_frame, text="up", fg=text_color, bg=background_color)
-        label.grid(row=row_counter, column=0)
+
+        up_frame = tk.Frame(advanced_section_frame, bg=background_color)
+        up_frame.grid(row=row_counter, column=0, rowspan=1, sticky="ew")
         row_counter += 1
-        
-        entry_y1 = tk.Entry(advanced_section_frame)
-        entry_y1.grid(row=row_counter, column=0)
+        label = tk.Label(up_frame, text="up", fg=text_color, bg=background_color)
+        label.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        entry_y1 = tk.Entry(up_frame)
+        entry_y1.pack(side=tk.LEFT, fill=tk.X, expand=True)
         entry_y1.insert(0, adjust_y1)
+        
+        right_frame = tk.Frame(advanced_section_frame, bg=background_color)
+        right_frame.grid(row=row_counter, column=0, rowspan=1, sticky="ew")
+        label = tk.Label(right_frame, text="right", fg=text_color, bg=background_color)
+        label.pack(side=tk.LEFT, fill=tk.X, expand=True)
         row_counter += 1
         
-        label = tk.Label(advanced_section_frame, text="right", fg=text_color, bg=background_color)
-        label.grid(row=row_counter, column=0)
-        row_counter += 1
-        
-        entry_x2 = tk.Entry(advanced_section_frame)
-        entry_x2.grid(row=row_counter, column=0)
+        entry_x2 = tk.Entry(right_frame)
+        entry_x2.pack(side=tk.LEFT, fill=tk.X, expand=True)
         entry_x2.insert(0, adjust_x2)
+        
+        left__frame = tk.Frame(advanced_section_frame, bg=background_color)
+        left__frame.grid(row=row_counter, column=0, rowspan=1, sticky="ew")
+        label = tk.Label(left__frame, text="left", fg=text_color, bg=background_color)
+        label.pack(side=tk.LEFT, fill=tk.X, expand=True)
         row_counter += 1
         
-        label = tk.Label(advanced_section_frame, text="left", fg=text_color, bg=background_color)
-        label.grid(row=row_counter, column=0)
-        row_counter += 1
-        
-        entry_x1 = tk.Entry(advanced_section_frame)
-        entry_x1.grid(row=row_counter, column=0)
+        entry_x1 = tk.Entry(left__frame)
+        entry_x1.pack(side=tk.LEFT, fill=tk.X, expand=True)
         entry_x1.insert(0, adjust_x1)
+        
+        down_frame = tk.Frame(advanced_section_frame, bg=background_color)
+        down_frame.grid(row=row_counter, column=0, rowspan=1, sticky="ew")
+        label = tk.Label(down_frame, text="down", fg=text_color, bg=background_color)
+        label.pack(side=tk.LEFT, fill=tk.X, expand=True)
         row_counter += 1
         
-        label = tk.Label(advanced_section_frame, text="down", fg=text_color, bg=background_color)
-        label.grid(row=row_counter, column=0)
-        row_counter += 1
-        
-        entry_y2 = tk.Entry(advanced_section_frame)
-        entry_y2.grid(row=row_counter, column=0)
+        entry_y2 = tk.Entry(down_frame)
+        entry_y2.pack(side=tk.LEFT, fill=tk.X, expand=True)
         entry_y2.insert(0, adjust_y2)
-        row_counter += 1
         
         button = tk.Button(advanced_section_frame, text="Set Values", bg=button_color, fg=text_color, command=set_adjust_value)
         button.grid(row=row_counter, column=0)
@@ -695,13 +705,78 @@ while True:
         label = tk.Label(advanced_section_frame, text="codeformer settings finished", fg=text_color, bg=background_color)
         label.grid(row=row_counter, column=0)
         row_counter += 1
+
+        def toggle_clip_menu():
+            global clip_menu_visible
+            if clip_menu_visible:
+                clip_frame.grid_remove()
+            else:
+                clip_frame.grid(row=clip_menu_counter, column=0, pady=10)
+            clip_menu_visible = not clip_menu_visible
+            
+        show_clip_settings = tk.Button(left_frame, text='Toggle CLIP settings', bg=button_color, fg=text_color, command=toggle_clip_menu)
+        show_clip_settings.grid(row=row_counter, column=0)
+        show_clip_settings.grid_columnconfigure(0, weight=1)
+        row_counter += 1
+        clip_frame = tk.LabelFrame(left_frame, text="CLIP settings", bg=background_color, fg=text_color)
+        clip_frame.grid(row=row_counter, column=0, pady=10, sticky="nsew")
+        clip_menu_visible = True
+        clip_menu_counter = row_counter
+        row_counter += 1
+
+        enable_clip_var = tk.IntVar()
+        enable_clip_ckeck = ttk.Checkbutton(clip_frame, text="Enable clip", variable=enable_clip_var, style="TCheckbutton")
+        enable_clip_ckeck.grid(row=row_counter, column=0, sticky='ew')
+        row_counter += 1
+        
+        label = tk.Label(clip_frame, text="positive prompt:", fg=text_color, bg=background_color)
+        label.grid(row=row_counter, column=0, sticky='ew')
+        row_counter += 1
+        
+        entry_clip_pos = tk.Entry(clip_frame)
+        entry_clip_pos.grid(row=row_counter, column=0, sticky='ew')
+        row_counter += 1
+        
+        label = tk.Label(clip_frame, text="negative prompt:", fg=text_color, bg=background_color)
+        label.grid(row=row_counter, column=0, sticky='ew')
+        row_counter += 1
+        
+        entry_clip_neg = tk.Entry(clip_frame)
+        entry_clip_neg.grid(row=row_counter, column=0, sticky='ew')
+        row_counter += 1
+
+        def update_clip_values():
+            global clip_neg_prompt, clip_pos_prompt
+            clip_neg_prompt = entry_clip_neg.get()
+            clip_pos_prompt = entry_clip_pos.get()
+        button = tk.Button(clip_frame, text="Update CLIP values", bg=button_color, fg=text_color, command=update_clip_values)
+        button.grid(row=row_counter, column=0, sticky='ew')
+        row_counter += 1
+
+
+
         expander = tk.Label(left_frame, text=f"⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀", fg=text_color, bg=background_color)
         expander.grid(row=row_counter, column=0, sticky="ew")
         row_counter += 1
-        occluder_checkbox_var = tk.IntVar()
-        occluder_checkbox = ttk.Checkbutton(advanced_section_frame, text="Use occluder", variable=occluder_checkbox_var, style="TCheckbutton")
-        occluder_checkbox.grid(row=row_counter, column=0)
-        occluder_checkbox_var.set(1)
+        def open_face_chooser():
+            face_chooser_window = tk.Toplevel(root)
+            faces_listbox = ScrolledImageList(face_chooser_window)
+            faces_listbox.configure(background=background_color)
+            faces_listbox.selector_color = selector_color
+            faces_listbox.text_color = text_color
+            faces_listbox.grid(row=0, column=0, sticky="nsew")
+            # Load some sample image pairs
+            left_image_paths = ["face.jpg", "1621244089249.jfif", "rick.png"]
+            right_image_paths = left_image_paths[::-1]
+            
+            left_images = [Image.open(image_path) for image_path in left_image_paths]
+            right_images = [Image.open(image_path) for image_path in right_image_paths]
+            
+            # Insert data into the ScrolledImageList
+            image_pair_list = list(zip(left_images, right_images))
+            faces_listbox.insert_data(image_pair_list)
+        buttonxx = tk.Button(left_frame, text="Choose faces", bg=button_color, fg=text_color, command=open_face_chooser)
+        buttonxx.grid(row=row_counter, column=0)
         row_counter += 1
         
         #=============================================
@@ -901,7 +976,10 @@ while True:
                     if not args['cli']:
                         occluder_works = int(occluder_checkbox_var.get())
                         #print(occluder_works)
-                    frame = face_swappers[sw].get(frame, face, get_source_face(),occluder_works, paste_back=True)
+                    clip_works = False
+                    if not args['cli']:
+                        clip_works = int(enable_clip_var.get())
+                    frame = face_swappers[sw].get(frame, face, get_source_face(),occluder_works, clip_works, [clip_pos_prompt, clip_neg_prompt], paste_back=True)
                 try:
                     test1 = checkbox_var.get() == 1 
                     test2 = not enhancer_choice.get() == "codeformer"
@@ -1271,17 +1349,17 @@ while True:
                             break
                     except KeyboardInterrupt:
                         break
-                    except Exception as e:
-                        if "main thread is not in main loop" in str(e):
-                            return
-                        if "list index out of range" in str(e):
-                            print('index')
-                            break
-                        if "'NoneType' object has no attribute 'shape'" in str(e) and isinstance(videos[current_loop_video]['target_path'], int):
-                            videos[current_loop_video]['cap'] = cv2.VideoCapture(videos[current_loop_video]['target_path'])
-                            videos[current_loop_video]['cap'].set(cv2.CAP_PROP_FRAME_WIDTH, globalsz.width)
-                            videos[current_loop_video]['cap'].set(cv2.CAP_PROP_FRAME_HEIGHT, globalsz.height)
-                        print(f"HUSTON, WE HAD AN EXCEPTION, PROCEED WITH CAUTION, SEND RICHARD THIS: {e}. Line 947")
+                    #except Exception as e:
+                    #    if "main thread is not in main loop" in str(e):
+                    #        return
+                    #    if "list index out of range" in str(e):
+                    #        print('index')
+                    #        break
+                    #    if "'NoneType' object has no attribute 'shape'" in str(e) and isinstance(videos[current_loop_video]['target_path'], int):
+                    #        videos[current_loop_video]['cap'] = cv2.VideoCapture(videos[current_loop_video]['target_path'])
+                    #        videos[current_loop_video]['cap'].set(cv2.CAP_PROP_FRAME_WIDTH, globalsz.width)
+                    #        videos[current_loop_video]['cap'].set(cv2.CAP_PROP_FRAME_HEIGHT, globalsz.height)
+                    #    print(f"HUSTON, WE HAD AN EXCEPTION, PROCEED WITH CAUTION, SEND RICHARD THIS: {e}. Line 947")
                 for i in videos[current_video]['temp']:
                     bbox, videos[current_video]["swapped_image"], videos[current_video]['original_image'] = i.join()
                     if not args['cli']:
@@ -1342,12 +1420,12 @@ while True:
         
             except KeyboardInterrupt:
                 break
-            except Exception as e:
-                if "main thread is not in main loop" in str(e):
-                    return
-                #if "list index out of range" in str(e):
-                #    break
-                print(f"HUSTON, WE HAD AN EXCEPTION, PROCEED WITH CAUTION, SEND RICHARD THIS: {e}. Line 1229")
+            #except Exception as e:
+            #    if "main thread is not in main loop" in str(e):
+            #        return
+            #    #if "list index out of range" in str(e):
+            #    #    break
+            #    print(f"HUSTON, WE HAD AN EXCEPTION, PROCEED WITH CAUTION, SEND RICHARD THIS: {e}. Line 1229")
             
             
         print("Processing finished, you may close the window now")
@@ -1425,6 +1503,8 @@ while True:
             update_selector()
             frame_updater()
             root.after(1000, toggle_menu)
+            root.after(1000, toggle_clip_menu)
+            
             root.mainloop()
         else:
             main()

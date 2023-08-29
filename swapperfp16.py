@@ -100,20 +100,34 @@ class INSwapper():
         self.fake_diff_state = False
         self.GFPGAN_state = False
         self.fake_diff_blend = 0
+        #for clip
+        self.pos_thresh = 0.5
+        self.neg_thresh = 0.5
+        self.CLIPs = ["", ""]
+        self.init_clip = False
+        self.occluder_works = False
+        self.CLIP_blur = 5
     def load_occluder(self):
         self.init_occluder = True
         self.occluder_model, self.occluder_tensor = load_occluder_model()
     def load_clip(self):
+        self.init_clip = True
         self.clip_session, self.cuda_device = load_clip_model()
 
     def forward(self, img, latent):
         img = (img - self.input_mean) / self.input_std
         pred = self.session.run(self.output_names, {self.input_names[0]: img, self.input_names[1]: latent})[0]
         return pred
-    def get(self, img, target_face, source_face, occluder_works=False, paste_back=True):
+    def get(self, img, target_face, source_face, occluder_works=False, clip_works=False, prompts=["", ""], paste_back=True):
+        if clip_works:
+            self.CLIPs = prompts
+        self.toggle_CLIPs = clip_works
+        self.occluder_works = occluder_works
         if not self.init_occluder and occluder_works:
             self.load_occluder()
-        if occluder_works:
+        if not self.init_clip and clip_works:
+            self.load_clip()
+        if occluder_works or clip_works:
             return self.get_rope(img, target_face, source_face, paste_back)  
         
         else:
@@ -148,7 +162,6 @@ class INSwapper():
         #print(latent.shape, latent.dtype, pred.shape)
         img_fake = pred.transpose((0,2,3,1))[0]
         bgr_fake = np.clip(255 * img_fake, 0, 255).astype(np.uint8)[:,:,::-1]
-        bb = cv2.cvtColor(bgr_fake, cv2.COLOR_BGR2RGB)
 
 
         target_img = img
@@ -188,7 +201,7 @@ class INSwapper():
         img_mask /= 255
         
         # Occluder
-        if self.occluder:
+        if self.occluder and self.occluder_works:
 
             input_image = cv2.warpAffine(target_img, M2, (256, 256), borderValue=0.0)
 
