@@ -582,10 +582,25 @@ while True:
         occluder_checkbox.grid(row=row_counter, column=0)
         occluder_checkbox_var.set(1)
         row_counter += 1
-        show_advanced_settings = tk.Button(left_frame, text='Toggle advanced settings', bg=button_color, fg=text_color, command=toggle_menu)
-        show_advanced_settings.grid(row=row_counter, column=0)
+        
+        toggle_frame_ = tk.Frame(left_frame, bg=background_color)
+        toggle_frame_.grid(row=row_counter, column=0, sticky="ew")
+        row_counter += 1
+        show_advanced_settings = tk.Button(toggle_frame_, text='Toggle advanced settings', bg=button_color, fg=text_color, command=toggle_menu)
+        show_advanced_settings.pack(side=tk.LEFT, fill=tk.X, expand=True)
         row_counter += 1
         
+        def toggle_clip_menu():
+            global clip_menu_visible
+            if clip_menu_visible:
+                clip_frame.grid_remove()
+            else:
+                clip_frame.grid(row=clip_menu_counter, column=0, pady=10)
+            clip_menu_visible = not clip_menu_visible
+            
+        show_clip_settings = tk.Button(toggle_frame_, text='Toggle CLIP settings', bg=button_color, fg=text_color, command=toggle_clip_menu)
+        show_clip_settings.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        row_counter += 1
         advanced_section_frame = tk.LabelFrame(left_frame, text="Advanced settings", bg=background_color, fg=text_color)
         advanced_section_frame.grid(row=row_counter, column=0, pady=10, sticky="nsew")
         menu_visible = True
@@ -706,18 +721,6 @@ while True:
         label.grid(row=row_counter, column=0)
         row_counter += 1
 
-        def toggle_clip_menu():
-            global clip_menu_visible
-            if clip_menu_visible:
-                clip_frame.grid_remove()
-            else:
-                clip_frame.grid(row=clip_menu_counter, column=0, pady=10)
-            clip_menu_visible = not clip_menu_visible
-            
-        show_clip_settings = tk.Button(left_frame, text='Toggle CLIP settings', bg=button_color, fg=text_color, command=toggle_clip_menu)
-        show_clip_settings.grid(row=row_counter, column=0)
-        show_clip_settings.grid_columnconfigure(0, weight=1)
-        row_counter += 1
         clip_frame = tk.LabelFrame(left_frame, text="CLIP settings", bg=background_color, fg=text_color)
         clip_frame.grid(row=row_counter, column=0, pady=10, sticky="nsew")
         clip_menu_visible = True
@@ -726,23 +729,23 @@ while True:
 
         enable_clip_var = tk.IntVar()
         enable_clip_ckeck = ttk.Checkbutton(clip_frame, text="Enable clip", variable=enable_clip_var, style="TCheckbutton")
-        enable_clip_ckeck.grid(row=row_counter, column=0, sticky='ew')
+        enable_clip_ckeck.pack(expand=True)#).grid(row=row_counter, column=0, sticky='ew')
         row_counter += 1
         
         label = tk.Label(clip_frame, text="positive prompt:", fg=text_color, bg=background_color)
-        label.grid(row=row_counter, column=0, sticky='ew')
+        label.pack(expand=True)#.grid(row=row_counter, column=0, sticky='ew')
         row_counter += 1
         
         entry_clip_pos = tk.Entry(clip_frame)
-        entry_clip_pos.grid(row=row_counter, column=0, sticky='ew')
+        entry_clip_pos.pack(expand=True, fill=tk.X)#.grid(row=row_counter, column=0, sticky='ew')
         row_counter += 1
         
         label = tk.Label(clip_frame, text="negative prompt:", fg=text_color, bg=background_color)
-        label.grid(row=row_counter, column=0, sticky='ew')
+        label.pack(expand=True)#.grid(row=row_counter, column=0, sticky='ew')
         row_counter += 1
         
         entry_clip_neg = tk.Entry(clip_frame)
-        entry_clip_neg.grid(row=row_counter, column=0, sticky='ew')
+        entry_clip_neg.pack(expand=True, fill=tk.X)#.grid(row=row_counter, column=0, sticky='ew')
         row_counter += 1
 
         def update_clip_values():
@@ -750,7 +753,7 @@ while True:
             clip_neg_prompt = entry_clip_neg.get()
             clip_pos_prompt = entry_clip_pos.get()
         button = tk.Button(clip_frame, text="Update CLIP values", bg=button_color, fg=text_color, command=update_clip_values)
-        button.grid(row=row_counter, column=0, sticky='ew')
+        button.pack(expand=True)#.grid(row=row_counter, column=0, sticky='ew')
         row_counter += 1
 
 
@@ -870,9 +873,15 @@ while True:
                 frame_move = 1
             else:
                 frame_move = 0
+        def update_wraplength(event):
+            select_face_label.config(wraplength=left_frame.winfo_width() - 20)  # Subtract a small padding
+            select_target_label.config(wraplength=left_frame.winfo_width() - 20)  # Subtract a small padding
+            select_output_label.config(wraplength=left_frame.winfo_width() - 20)  # Subtract a small padding
+
         root.bind("<Left>", left_arrow_click)
         root.bind("<Right>", right_arrow_click)
         root.bind("<space>", space_click)
+        root.bind("<Configure>", update_wraplength)
         right_control_frame = tk.Frame(root, bg=background_color)
         right_control_frame.grid(row=0, column=0, rowspan=2, sticky="ns")
         def add():
@@ -902,10 +911,12 @@ while True:
         select_output_label.grid(row=7, column=0, pady=3)
         canvas3 = tk.Canvas(right_control_frame, height=2, bg=border_color, highlightthickness=0)
         canvas3.grid(row=8, column=0, columnspan=2, sticky='ew', padx=0, pady=4)
-        button_select_camera = tk.Button(right_control_frame, text='run from camera',bg=button_color, fg=text_color, command=select_camera)
-        button_select_camera.grid(row=9, column=0, pady=3, sticky='ew')
-        button_start_program = tk.Button(right_control_frame, text="Add this video",bg=button_color, fg=text_color, command=add)
-        button_start_program.grid(row=10, column=0, pady=3, sticky='ew')
+        start_video_frame = tk.Frame(right_control_frame, bg=background_color)
+        start_video_frame.grid(row=9, column=0, sticky="ew")
+        button_start_program = tk.Button(start_video_frame, text="Add this video",bg=button_color, fg=text_color, command=add)
+        button_start_program.pack(side=tk.LEFT, fill=tk.X, expand=True)#.grid(row=10, column=0, pady=3, sticky='ew')
+        button_select_camera = tk.Button(start_video_frame, text='run from camera',bg=button_color, fg=text_color, command=select_camera)
+        button_select_camera.pack(side=tk.LEFT, fill=tk.X, expand=True)#.grid(row=9, column=0, pady=3, sticky='ew')
         #thread_amount_label = tk.Label(right_control_frame, text='Select the number of threads', fg=text_color, bg=background_color)
         #thread_amount_label.grid(row=8, column=0)
         #thread_amount_input = tk.Entry(right_control_frame)
@@ -1298,16 +1309,18 @@ while True:
                                 bbox, videos[current_loop_video]["swapped_image"], videos[current_loop_video]['original_image'] = face_analyser_thread(get_nth_frame(videos[current_loop_video]["cap"], videos[current_loop_video]['current_frame_index']-1), count%len(face_swappers))
                             xxs = False
                         if not args['cli']:
-                            if show_bbox_var.get() == 1:
+                            if show_bbox_var.get() == 1 or face_selector_var.get() == 1:
                                 for i in bbox: 
                                     x1, y1, x2, y2 = int(i[0]),int(i[1]),int(i[2]),int(i[3])
                                     x1 = max(x1-adjust_x1, 0)
                                     y1 = max(y1-adjust_y1, 0)
-                                    x2 = min(x2+adjust_x2, width)
-                                    y2 = min(y2+adjust_y2, height)
+                                    x2 = min(x2+adjust_x2, videos[current_loop_video]['width'])
+                                    y2 = min(y2+adjust_y2, videos[current_loop_video]['height'])
                                     color = (0, 255, 0)  # Green color (BGR format)
                                     thickness = 2  # Line thickness
-                                    cv2.rectangle(videos[current_loop_video]["swapped_image"], (x1,y1), (x2,y2), color, thickness)
+                                    if show_bbox_var.get() == 1:
+                                        cv2.rectangle(videos[current_loop_video]["swapped_image"], (x1,y1), (x2,y2), color, thickness)
+                                    cv2.rectangle(videos[current_loop_video]["original_image"], (x1,y1), (x2,y2), color, thickness)
                         if time.time() - start > 1:
                             start = time.time()
                             if not args['nocuda'] and not args['apple']:
@@ -1363,7 +1376,7 @@ while True:
                 for i in videos[current_video]['temp']:
                     bbox, videos[current_video]["swapped_image"], videos[current_video]['original_image'] = i.join()
                     if not args['cli']:
-                        if show_bbox_var.get() == 1:
+                        if show_bbox_var.get() == 1 :
                             for i in bbox: 
                                 x1, y1, x2, y2 = int(i[0]),int(i[1]),int(i[2]),int(i[3])
                                 x1 = max(x1-adjust_x1, 0)
