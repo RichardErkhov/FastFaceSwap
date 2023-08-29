@@ -228,7 +228,7 @@ def on_closing():
 
 while True:
     if not args['cli']:
-        from thatrandomfilethatneverwillbedeleted import ScrolledListBox, ScrolledImageList
+        from thatrandomfilethatneverwillbedeleted import ScrolledListBox, ScrolledListBox_horizontal
         import tkinter as tk
         from tkinter import ttk
         from tkinter.filedialog import asksaveasfilename, askdirectory, askopenfilename
@@ -464,6 +464,10 @@ while True:
         show_bbox.grid(row=row_counter, column=0)
         row_counter += 1
         
+        realtime_updater_var = tk.IntVar()
+        realtime_updater = ttk.Checkbutton(left_frame, text="realtime updater", variable=realtime_updater_var, style="TCheckbutton")
+        realtime_updater.grid(row=row_counter, column=0)
+        row_counter += 1
         if not isinstance(args['target_path'], int):
             progress_label = tk.Label(left_frame, fg=text_color, bg=background_color)
             progress_label.grid(row=row_counter, column=0)
@@ -726,13 +730,25 @@ while True:
             global alpha
             alpha = float(value)
         
-        label = tk.Label(advanced_section_frame, text="blender", fg=text_color, bg=background_color)
+        label = tk.Label(advanced_section_frame, text="original/final blend", fg=text_color, bg=background_color)
         label.grid(row=row_counter, column=0)
         row_counter += 1
         
         alpha_slider = tk.Scale(advanced_section_frame, from_=0.0, to=1.0, resolution=0.1, fg=text_color, bg=background_color,  orient=tk.HORIZONTAL, command=alpha_slider_move)
         alpha_slider.grid(row=row_counter, column=0)
         alpha_slider.set(1.0)
+        row_counter += 1
+        label = tk.Label(advanced_section_frame, text="swapped/upscaled blend", fg=text_color, bg=background_color)
+        label.grid(row=row_counter, column=0)
+        row_counter += 1
+        
+        alpha2 = 1.0
+        def alpha_slider_move(value):
+            global alpha2
+            alpha2 = float(value)
+        alpha_slider2 = tk.Scale(advanced_section_frame, from_=0.0, to=1.0, resolution=0.1, fg=text_color, bg=background_color,  orient=tk.HORIZONTAL, command=alpha_slider_move)
+        alpha_slider2.grid(row=row_counter, column=0)
+        alpha_slider2.set(1.0)
         row_counter += 1
         
         codeformer_skip_if_no_face_var = tk.IntVar()
@@ -807,21 +823,45 @@ while True:
         row_counter += 1
         def open_face_chooser():
             face_chooser_window = tk.Toplevel(root)
-            faces_listbox = ScrolledImageList(face_chooser_window)
+            face_chooser_window.geometry("640x560")
+            face_chooser_window.grid_rowconfigure(0, weight=1)
+            face_chooser_window.grid_columnconfigure(0, weight=1)
+            face_chooser_window.grid_rowconfigure(1, weight=1)
+
+            video_faces = tk.Frame(face_chooser_window, bg=background_color)
+            video_faces.grid(row=0, column=0, sticky="ew")
+            video_faces.grid_rowconfigure(0, weight=1)
+            video_faces.grid_columnconfigure(0, weight=1)
+            faces_listbox = ScrolledListBox_horizontal(video_faces)
             faces_listbox.configure(background=background_color)
             faces_listbox.selector_color = selector_color
             faces_listbox.text_color = text_color
             faces_listbox.grid(row=0, column=0, sticky="nsew")
+            added_faces = tk.Frame(face_chooser_window, bg=background_color)
+            added_faces.grid(row=1, column=0, sticky="ew")
+            added_faces.grid_rowconfigure(0, weight=1)
+            added_faces.grid_columnconfigure(0, weight=1)
+            faces_listbox2 = ScrolledListBox_horizontal(added_faces)
+            faces_listbox2.configure(background=background_color)
+            faces_listbox2.selector_color = selector_color
+            faces_listbox2.text_color = text_color
+            faces_listbox2.grid(row=0, column=0, sticky="nsew")
+            face_chooser_window.update_idletasks()
             # Load some sample image pairs
             left_image_paths = ["face.jpg", "1621244089249.jfif", "rick.png"]
             right_image_paths = left_image_paths[::-1]
             
-            left_images = [Image.open(image_path) for image_path in left_image_paths]
-            right_images = [Image.open(image_path) for image_path in right_image_paths]
+            right_images = [Image.open(image_path) for image_path in left_image_paths]
+            left_images = ["1", "2", "3"]
             
             # Insert data into the ScrolledImageList
             image_pair_list = list(zip(left_images, right_images))
             faces_listbox.insert_data(image_pair_list)
+            faces_listbox2.insert_data(image_pair_list)
+            faces_listbox2.add_item("banana", right_images[0])
+            #for i in image_pair_list:
+            #    faces_listbox2.add_item(*i)
+            #faces_listbox2.insert_data(image_pair_list)
         buttonxx = tk.Button(left_frame, text="Choose faces", bg=button_color, fg=text_color, command=open_face_chooser)
         buttonxx.grid(row=row_counter, column=0)
         row_counter += 1
@@ -883,10 +923,10 @@ while True:
                 real_y = width*relative_x
                 for bbox in bboxes:
                     if real_y > bbox[0] and real_y < bbox[2] and real_x > bbox[1] and real_x < bbox[3]:
-                        videos[current_video]['old_number'] = -1
                         this_face = videos[current_video]['original_image'][int(bbox[1]):int(bbox[3]), int(bbox[0]):int(bbox[2])]
                         args['selective'] = True
                         target_embedding = get_embedding(this_face)[0]
+                        videos[current_video]['old_number'] = -1
                         cv2.imshow("cropped face", this_face)
                         cv2.waitKey(0)
                         try:
@@ -1004,7 +1044,7 @@ while True:
             except:
                 return
     def face_analyser_thread(frame, sw):
-        global alpha, codeformer
+        global alpha2, codeformer
         original_frame = frame.copy()
         if not args['cli']:
             test1 = alpha != 0
@@ -1034,6 +1074,7 @@ while True:
                     if not args['cli']:
                         clip_works = int(enable_clip_var.get())
                     frame = face_swappers[sw].get(frame, face, get_source_face(),occluder_works, clip_works, [clip_pos_prompt, clip_neg_prompt], paste_back=True)
+                    swapped_frame = frame.copy()
                 try:
                     test1 = checkbox_var.get() == 1 
                     test2 = not enhancer_choice.get() == "codeformer"
@@ -1077,6 +1118,13 @@ while True:
                     if args['fastload']:
                         from plugins.codeformer_app_cv2 import inference_app as codeformer
                     frame = codeformer(frame, args['codeformer_background_enhance'], args['codeformer_face_upscale'], args['codeformer_upscale'], float(args['codeformer_fidelity']), args['codeformer_skip_if_no_face'])
+            if not args['cli']:
+                test1 = alpha2 != 1
+            else:
+                test1 = args['alpha'] != 1
+            if test1:
+                #print(alpha)
+                frame = merge_face(frame, swapped_frame, alpha2)
             if not args['cli']:
                 test1 = alpha != 1
             else:
@@ -1365,7 +1413,8 @@ while True:
                                 bbox, videos[current_loop_video]["swapped_image"], videos[current_loop_video]['original_image'] = videos[current_loop_video]['temp'].pop(0).join()
                             xxs = True
                         else:
-                            if not videos[current_loop_video]['current_frame_index'] == videos[current_loop_video]['old_number']:
+                            
+                            if not videos[current_loop_video]['current_frame_index'] == videos[current_loop_video]['old_number'] or int(realtime_updater_var.get()):
                                 bbox, videos[current_loop_video]["swapped_image"], videos[current_loop_video]['original_image'] = face_analyser_thread(get_nth_frame(videos[current_loop_video]["cap"], videos[current_loop_video]['current_frame_index']-1), count%len(face_swappers))
                             xxs = False
                         if not args['cli']:
