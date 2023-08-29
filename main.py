@@ -615,8 +615,8 @@ while True:
                         x1, y1, x2, y2 = int(i[0]),int(i[1]),int(i[2]),int(i[3])
                         x1 = max(x1-adjust_x1, 0)
                         y1 = max(y1-adjust_y1, 0)
-                        x2 = min(x2+adjust_x2, width)
-                        y2 = min(y2+adjust_y2, height)
+                        x2 = min(x2+adjust_x2, int(width))
+                        y2 = min(y2+adjust_y2, int(height))
                         facer = frame[y1:y2, x1:x2]
                         if not args['cli']:
                             if enhancer_choice.get() == "fastface enhancer":
@@ -899,8 +899,8 @@ while True:
                                     x1, y1, x2, y2 = int(i[0]),int(i[1]),int(i[2]),int(i[3])
                                     x1 = max(x1-adjust_x1, 0)
                                     y1 = max(y1-adjust_y1, 0)
-                                    x2 = min(x2+adjust_x2, width)
-                                    y2 = min(y2+adjust_y2, height)
+                                    x2 = min(x2+adjust_x2, int(width))
+                                    y2 = min(y2+adjust_y2, int(height))
                                     color = (0, 255, 0)  # Green color (BGR format)
                                     thickness = 2  # Line thickness
                                     cv2.rectangle(frame, (x1,y1), (x2,y2), color, thickness)
@@ -955,8 +955,8 @@ while True:
                                 x1, y1, x2, y2 = int(i[0]),int(i[1]),int(i[2]),int(i[3])
                                 x1 = max(x1-adjust_x1, 0)
                                 y1 = max(y1-adjust_y1, 0)
-                                x2 = min(x2+adjust_x2, width)
-                                y2 = min(y2+adjust_y2, height)
+                                x2 = min(x2+adjust_x2, int(width))
+                                y2 = min(y2+adjust_y2, int(height))
                                 color = (0, 255, 0)  # Green color (BGR format)
                                 thickness = 2  # Line thickness
                                 cv2.rectangle(frame, (x1,y1), (x2,y2), color, thickness)
