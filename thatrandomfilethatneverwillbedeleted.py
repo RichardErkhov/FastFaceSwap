@@ -305,6 +305,8 @@ class ScrolledListBox_horizontal(AutoScroll_horizontal, tk.Canvas):
         self.spacing = 10  
         self.selector_color = "blue"
         self.text_color = "white"
+        self.other_widget = None
+        self.selected_index = None
 
     def _update_layout(self, event):
         print('x')
@@ -316,7 +318,8 @@ class ScrolledListBox_horizontal(AutoScroll_horizontal, tk.Canvas):
         total_width = 0
 
         for i, data in enumerate(self.data_list):
-            text, image = data
+            #text, image, embedding, we don't need embedding here
+            text, image, _ = data
 
             if i not in self.original_images:
                 self.original_images[i] = image.copy()
@@ -348,7 +351,9 @@ class ScrolledListBox_horizontal(AutoScroll_horizontal, tk.Canvas):
     def _on_item_click(self, event, idx):
         if hasattr(self, 'highlighted_rect'):
             self.itemconfig(self.highlighted_rect, fill='')  # Clear the previous highlight by setting its fill to empty
-        
+        if self.selected_index == idx:
+            print(idx)
+            return
         # Highlight the bounding rectangle associated with the clicked item
         self.highlighted_rect = self.image_cache[idx][3]
         self.itemconfig(self.highlighted_rect, fill=self.selector_color)
@@ -366,9 +371,9 @@ class ScrolledListBox_horizontal(AutoScroll_horizontal, tk.Canvas):
         self.original_images.clear()
         self._update_layout(None)
 
-    def add_item(self, text, image):
+    def add_item(self, text, image, embedding):
         """Add a new item (text and image) to the list and update the display."""
-        self.data_list.append([text, image])
+        self.data_list.append([text, image, embedding])
         self._update_layout(None)
 
     def scroll(self, event):

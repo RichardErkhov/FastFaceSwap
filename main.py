@@ -825,7 +825,7 @@ while True:
         expander.grid(row=row_counter, column=0, sticky="ew")
         row_counter += 1
         def open_face_chooser():
-            face_chooser_window = tk.Toplevel(root)
+            face_chooser_window = tk.Toplevel(root, bg=background_color)
             face_chooser_window.geometry("640x560")
             face_chooser_window.grid_rowconfigure(0, weight=1)
             face_chooser_window.grid_columnconfigure(0, weight=1)
@@ -849,6 +849,8 @@ while True:
             faces_listbox2.selector_color = selector_color
             faces_listbox2.text_color = text_color
             faces_listbox2.grid(row=0, column=0, sticky="nsew")
+            faces_listbox2.other_widget = faces_listbox
+            faces_listbox.other_widget = faces_listbox2
             face_chooser_window.update_idletasks()
             '''# Load some sample image pairs
             left_image_paths = ["face.jpg", "rick.png"]
@@ -865,23 +867,38 @@ while True:
             faces_listbox2.add_item("banana2", right_images[0])
             faces_listbox2.add_item("banana3", right_images[0])'''
             def find_and_add_faces():
-                image = original_image_label.image
-                image_width = image.width()
-                image_height = image.height()
-                #print(relative_x, relative_y)
-                bboxes = []
-                faces = face_analysers[0].get(videos[current_video]['original_image'])
-                for face in faces:    
-                    bboxes.append(face.bbox)
-                height, width = videos[current_video]['original_image'].shape[:2]
-                images = []
-                for bbox in bboxes:
-                    images.append(videos[current_video]['original_image'][int(bbox[1]):int(bbox[3]), int(bbox[0]):int(bbox[2])])
+                try:
+                    image = original_image_label.image
+                    image_width = image.width()
+                    image_height = image.height()
+                    #print(relative_x, relative_y)
+                    bboxes = []
+                    faces = face_analysers[0].get(videos[current_video]['original_image'])
+                    for face in faces:    
+                        bboxes.append([face.bbox, face])
+                    height, width = videos[current_video]['original_image'].shape[:2]
+                    images = []
+                    for bbox, face in bboxes:
+                        images.append([Image.fromarray(cv2.cvtColor(videos[current_video]['original_image'][int(bbox[1]):int(bbox[3]), int(bbox[0]):int(bbox[2])], cv2.COLOR_BGR2RGB)), face])
+                    good_images = []
+                    for i, f in images:
+                        allowed = True
+                        a = f.normed_embedding
+                        for (_, _, tt) in faces_listbox.data_list:
+                            _, allow = compute_cosine_distance(a,tt , 0.75)
+                            if allow:
+                                allowed = False
+                                break
+                        if allowed:
+                            faces_listbox.add_item("unselected", i, a)
+                    
+                #for i in image_pair_list:
+                #    faces_listbox2.add_item(*i)
+                #faces_listbox2.insert_data(image_pair_list)
+                except Exception as e:
+                    print(f"HUSTON, WE HAD A PROBLEM AT FINDING FACES: {e}")
             find_faces_in_frame_button = tk.Button(face_chooser_window, text="Find faces", bg=button_color, fg=text_color, command=find_and_add_faces)
             find_faces_in_frame_button.grid(row=2, column=0)
-            #for i in image_pair_list:
-            #    faces_listbox2.add_item(*i)
-            #faces_listbox2.insert_data(image_pair_list)
         buttonxx = tk.Button(left_frame, text="Choose faces", bg=button_color, fg=text_color, command=open_face_chooser)
         buttonxx.grid(row=row_counter, column=0)
         row_counter += 1
@@ -1275,6 +1292,17 @@ while True:
                         swapped_image_label_second.image = None  # Keep a reference to prevent garbage collection
 
         except:
+            
+            original_image_label.configure(image=None)
+            original_image_label.image = None  # Keep a reference to prevent garbage collection
+            swapped_image_label.configure(image=None)
+            swapped_image_label.image = None
+            if original_image_second_open:
+                original_image_label_second.configure(image=None)
+                original_image_label_second.image = None  # Keep a reference to prevent garbage collection
+            if swapped_image_second_open:
+                swapped_image_label_second.configure(image=None)
+                swapped_image_label_second.image = None  # Keep a reference to prevent garbage collection
             pass
         if xx:
             root.after(30, frame_updater)
@@ -1552,17 +1580,17 @@ while True:
                             break
                     except KeyboardInterrupt:
                         break
-                    #except Exception as e:
-                    #    if "main thread is not in main loop" in str(e):
-                    #        return
-                    #    if "list index out of range" in str(e):
-                    #        print('index')
-                    #        break
-                    #    if "'NoneType' object has no attribute 'shape'" in str(e) and isinstance(videos[current_loop_video]['target_path'], int):
-                    #        videos[current_loop_video]['cap'] = cv2.VideoCapture(videos[current_loop_video]['target_path'])
-                    #        videos[current_loop_video]['cap'].set(cv2.CAP_PROP_FRAME_WIDTH, globalsz.width)
-                    #        videos[current_loop_video]['cap'].set(cv2.CAP_PROP_FRAME_HEIGHT, globalsz.height)
-                    #    print(f"HUSTON, WE HAD AN EXCEPTION, PROCEED WITH CAUTION, SEND RICHARD THIS: {e}. Line 947")
+                    except Exception as e:
+                        if "main thread is not in main loop" in str(e):
+                            return
+                        if "list index out of range" in str(e):
+                            print('index')
+                            break
+                        if "'NoneType' object has no attribute 'shape'" in str(e) and isinstance(videos[current_loop_video]['target_path'], int):
+                            videos[current_loop_video]['cap'] = cv2.VideoCapture(videos[current_loop_video]['target_path'])
+                            videos[current_loop_video]['cap'].set(cv2.CAP_PROP_FRAME_WIDTH, globalsz.width)
+                            videos[current_loop_video]['cap'].set(cv2.CAP_PROP_FRAME_HEIGHT, globalsz.height)
+                        print(f"HUSTON, WE HAD AN EXCEPTION, PROCEED WITH CAUTION, SEND RICHARD THIS: {e}. Line 947")
                 for i in videos[current_video]['temp']:
                     bbox, videos[current_video]["swapped_image"], videos[current_video]['original_image'] = i.join()
                     if not args['cli']:
@@ -1623,12 +1651,12 @@ while True:
         
             except KeyboardInterrupt:
                 break
-            #except Exception as e:
-            #    if "main thread is not in main loop" in str(e):
-            #        return
-            #    #if "list index out of range" in str(e):
-            #    #    break
-            #    print(f"HUSTON, WE HAD AN EXCEPTION, PROCEED WITH CAUTION, SEND RICHARD THIS: {e}. Line 1229")
+            except Exception as e:
+                if "main thread is not in main loop" in str(e):
+                    return
+                #if "list index out of range" in str(e):
+                #    break
+                print(f"HUSTON, WE HAD AN EXCEPTION, PROCEED WITH CAUTION, SEND RICHARD THIS: {e}. Line 1229")
             
             
         print("Processing finished, you may close the window now")
