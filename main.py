@@ -651,6 +651,7 @@ while True:
         row_counter += 1
         advanced_section_frame = tk.LabelFrame(left_frame, text="Advanced settings", bg=background_color, fg=text_color)
         advanced_section_frame.grid(row=row_counter, column=0, pady=10, sticky="nsew")
+        advanced_section_frame.grid_columnconfigure(0, weight=1)
         menu_visible = True
         menu_counter = row_counter
         row_counter += 1
@@ -722,7 +723,7 @@ while True:
         row_counter += 1
         
         codeformer_slider = tk.Scale(advanced_section_frame, from_=0.1, to=2.0, resolution=0.1,  orient=tk.HORIZONTAL, fg=text_color, bg=background_color, command=on_codeformer_slider_move)
-        codeformer_slider.grid(row=row_counter, column=0)
+        codeformer_slider.grid(row=row_counter, column=0, sticky='ew', padx=10)
         row_counter += 1
         
         alpha = 1.0
@@ -735,7 +736,7 @@ while True:
         row_counter += 1
         
         alpha_slider = tk.Scale(advanced_section_frame, from_=0.0, to=1.0, resolution=0.1, fg=text_color, bg=background_color,  orient=tk.HORIZONTAL, command=alpha_slider_move)
-        alpha_slider.grid(row=row_counter, column=0)
+        alpha_slider.grid(row=row_counter, column=0, sticky='ew', padx=10)
         alpha_slider.set(1.0)
         row_counter += 1
         label = tk.Label(advanced_section_frame, text="swapped/upscaled blend", fg=text_color, bg=background_color)
@@ -747,7 +748,7 @@ while True:
             global alpha2
             alpha2 = float(value)
         alpha_slider2 = tk.Scale(advanced_section_frame, from_=0.0, to=1.0, resolution=0.1, fg=text_color, bg=background_color,  orient=tk.HORIZONTAL, command=alpha_slider_move)
-        alpha_slider2.grid(row=row_counter, column=0)
+        alpha_slider2.grid(row=row_counter, column=0, sticky='ew', padx=10)
         alpha_slider2.set(1.0)
         row_counter += 1
         
@@ -773,14 +774,16 @@ while True:
             codeformer_upscale_amount_value = int(value)
         
         codeformer_upscale_amount = tk.Scale(advanced_section_frame, from_=1, to=3, resolution=1, fg=text_color, bg=background_color, orient=tk.HORIZONTAL, command=codeformer_upscale_amount_move)
-        codeformer_upscale_amount.grid(row=row_counter, column=0)
+        codeformer_upscale_amount.grid(row=row_counter, column=0, sticky='ew', padx=10)
         codeformer_upscale_amount.set(1)
         row_counter += 1
         
-        label = tk.Label(advanced_section_frame, text="codeformer settings finished", fg=text_color, bg=background_color)
-        label.grid(row=row_counter, column=0)
+        #label = tk.Label(advanced_section_frame, text="codeformer settings finished", fg=text_color, bg=background_color)
+        #label.grid(row=row_counter, column=0)
+        #row_counter += 1
+        clean_cache_button = tk.Button(advanced_section_frame, text="Clean VRAM", bg=button_color, fg=text_color, command=lambda:torch.cuda.empty_cache())
+        clean_cache_button.grid(row=row_counter, column=0)
         row_counter += 1
-
         clip_frame = tk.LabelFrame(left_frame, text="CLIP settings", bg=background_color, fg=text_color)
         clip_frame.grid(row=row_counter, column=0, pady=10, sticky="nsew")
         clip_menu_visible = True
@@ -847,7 +850,7 @@ while True:
             faces_listbox2.text_color = text_color
             faces_listbox2.grid(row=0, column=0, sticky="nsew")
             face_chooser_window.update_idletasks()
-            # Load some sample image pairs
+            '''# Load some sample image pairs
             left_image_paths = ["face.jpg", "rick.png"]
             right_image_paths = left_image_paths[::-1]
             
@@ -860,7 +863,22 @@ while True:
             faces_listbox2.insert_data(image_pair_list)
             faces_listbox2.add_item("banana", right_images[0])
             faces_listbox2.add_item("banana2", right_images[0])
-            faces_listbox2.add_item("banana3", right_images[0])
+            faces_listbox2.add_item("banana3", right_images[0])'''
+            def find_and_add_faces():
+                image = original_image_label.image
+                image_width = image.width()
+                image_height = image.height()
+                #print(relative_x, relative_y)
+                bboxes = []
+                faces = face_analysers[0].get(videos[current_video]['original_image'])
+                for face in faces:    
+                    bboxes.append(face.bbox)
+                height, width = videos[current_video]['original_image'].shape[:2]
+                images = []
+                for bbox in bboxes:
+                    images.append(videos[current_video]['original_image'][int(bbox[1]):int(bbox[3]), int(bbox[0]):int(bbox[2])])
+            find_faces_in_frame_button = tk.Button(face_chooser_window, text="Find faces", bg=button_color, fg=text_color, command=find_and_add_faces)
+            find_faces_in_frame_button.grid(row=2, column=0)
             #for i in image_pair_list:
             #    faces_listbox2.add_item(*i)
             #faces_listbox2.insert_data(image_pair_list)
@@ -872,6 +890,64 @@ while True:
         #render_button.grid(row=34, column=0)
         right_frame1 = tk.LabelFrame(root, text="Original frame", bg=background_color, highlightthickness=2, highlightbackground=border_color, fg=text_color)
         right_frame2 = tk.LabelFrame(root, text="Swapped frame", bg=background_color, highlightthickness=2, highlightbackground=border_color, fg=text_color)
+        ui_vertical = 0
+        show_orig = 1
+        show_swapped = 1
+        def update_ui(clicked=0):
+            global right_frame1, right_frame2, ui_vertical, show_orig, show_swapped
+            if clicked == 0:
+                ui_vertical = not ui_vertical
+            if clicked == 1:
+                show_orig = not show_orig
+            if clicked == 2:
+                show_swapped = not show_swapped
+            right_frame1.grid_remove()
+            right_frame2.grid_remove()
+            left_frame.grid_remove()
+            if show_orig:
+                show_hide_original_button.configure(text="Hide original video")
+                right_frame1.grid(row=0, column=1, columnspan=1+(not ui_vertical), rowspan = 1 +ui_vertical, sticky="nsew")
+            else:
+                show_hide_original_button.configure(text="Show original video")
+            if show_swapped:
+                show_hide_swapped_button.configure(text="Hide swapped video")
+                right_frame2.grid(row=0+(not ui_vertical), column=1+ui_vertical, columnspan=1+(not ui_vertical), rowspan = 1 +ui_vertical, sticky="nsew")
+            else:
+                show_hide_swapped_button.configure(text="Show swapped video")
+            left_frame.grid(row=0, column=3, rowspan=2, sticky="ns")
+            right_frame1.grid_propagate(True)
+            right_frame2.grid_propagate(True)
+            if ui_vertical:   
+                root.grid_columnconfigure(0, weight=1)
+                root.grid_columnconfigure(1, weight=4*show_orig)
+                root.grid_columnconfigure(2, weight=4*show_swapped)
+                root.grid_columnconfigure(3, weight=1)
+                root.grid_rowconfigure(0, weight=1) 
+                root.grid_rowconfigure(1, weight=1)             
+            
+            else:
+                root.grid_columnconfigure(0, weight=1)
+                root.grid_columnconfigure(1, weight=4)
+                root.grid_columnconfigure(2, weight=4)
+                root.grid_columnconfigure(3, weight=1)
+                root.grid_rowconfigure(0, weight=show_orig) 
+                root.grid_rowconfigure(1, weight=show_swapped)
+            right_frame1.grid_propagate(False)
+            right_frame2.grid_propagate(False)
+            root.update_idletasks()
+            root.update()
+        
+        UI_button_frame = tk.Frame(left_frame, bg=background_color)
+        UI_button_frame.grid(row=row_counter, column=0, sticky="ew")
+        row_counter += 1
+        make_vertical_button = tk.Button(UI_button_frame, text="vertical/horizontal video", bg=button_color, fg=text_color, command=lambda:update_ui(clicked=0))
+        make_vertical_button.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        show_hide_original_button = tk.Button(UI_button_frame, text="Hide original video", bg=button_color, fg=text_color, command=lambda:update_ui(clicked=1))
+        show_hide_original_button.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        show_hide_swapped_button = tk.Button(UI_button_frame, text="Hide swapped video", bg=button_color, fg=text_color, command=lambda:update_ui(clicked=2))
+        show_hide_swapped_button.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+
         original_image_label = tk.Label(right_frame1, bg=background_color)#, text="Original frame placeholder")
         swapped_image_label = tk.Label(right_frame2, bg=background_color)#, text="Swapped frame placeholder")
         right_frame1.grid_propagate(False)
@@ -1090,8 +1166,8 @@ while True:
                         x1, y1, x2, y2 = int(i[0]),int(i[1]),int(i[2]),int(i[3])
                         x1 = max(x1-adjust_x1, 0)
                         y1 = max(y1-adjust_y1, 0)
-                        x2 = min(x2+adjust_x2, int(width))
-                        y2 = min(y2+adjust_y2, int(height))
+                        x2 = min(x2+adjust_x2, videos[current_loop_video]['width'])
+                        y2 = min(y2+adjust_y2, videos[current_loop_video]['height'])
                         facer = frame[y1:y2, x1:x2]
                         if not args['cli']:
                             enhancer_choice_value = enhancer_choice.get()
@@ -1298,7 +1374,7 @@ while True:
         button_start_program.grid(row=10, column=0, pady=3, sticky='ew')
 
     def main():
-        global current_video, videos,old_index, args, width, height, frame_index, face_analysers,frame_move, face_swappers, source_face, progress_var, target_embedding, count, frame_number, listik, frame, cap
+        global current_video, videos,old_index, args, width, height, frame_index, face_analysers,frame_move, face_swappers, source_face, progress_var, target_embedding, count, frame_number, listik, frame, cap,current_loop_video
         #start = time.time()
         if not args['fastload']:
             face_swappers, face_analysers = prepare_swappers_and_analysers(args)
@@ -1495,8 +1571,8 @@ while True:
                                 x1, y1, x2, y2 = int(i[0]),int(i[1]),int(i[2]),int(i[3])
                                 x1 = max(x1-adjust_x1, 0)
                                 y1 = max(y1-adjust_y1, 0)
-                                x2 = min(x2+adjust_x2, width)
-                                y2 = min(y2+adjust_y2, height)
+                                x2 = min(x2+adjust_x2, videos[current_loop_video]['width'])
+                                y2 = min(y2+adjust_y2, videos[current_loop_video]['height'])
                                 color = (0, 255, 0)  # Green color (BGR format)
                                 thickness = 2  # Line thickness
                                 cv2.rectangle(videos[current_video]["swapped_image"], (x1,y1), (x2,y2), color, thickness)
