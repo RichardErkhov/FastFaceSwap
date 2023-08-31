@@ -615,9 +615,9 @@ while True:
         face_selector_check.grid(row=row_counter, column=0)
         face_selector_var.set(0)
         row_counter += 1
-        unselect_face_button = tk.Button(left_frame, text='unselect the face button', bg=button_color, fg=text_color, command=unselect_face)
-        unselect_face_button.grid(row=row_counter, column=0)
-        row_counter += 1
+        #unselect_face_button = tk.Button(left_frame, text='unselect the face button', bg=button_color, fg=text_color, command=unselect_face)
+        #unselect_face_button.grid(row=row_counter, column=0)
+        #row_counter += 1
         def toggle_menu():
             global menu_visible
             if menu_visible:
@@ -629,6 +629,10 @@ while True:
         occluder_checkbox = ttk.Checkbutton(left_frame, text="Use occluder", variable=occluder_checkbox_var, style="TCheckbutton")
         occluder_checkbox.grid(row=row_counter, column=0)
         occluder_checkbox_var.set(1)
+        row_counter += 1
+        advanced_face_detector_var = tk.IntVar()
+        advanced_face_detector_checkbox = ttk.Checkbutton(left_frame, text="advanced face detector", variable=advanced_face_detector_var, style="TCheckbutton")
+        advanced_face_detector_checkbox.grid(row=row_counter, column=0)
         row_counter += 1
         
         toggle_frame_ = tk.Frame(left_frame, bg=background_color)
@@ -824,81 +828,112 @@ while True:
         expander = tk.Label(left_frame, text=f"⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀", fg=text_color, bg=background_color)
         expander.grid(row=row_counter, column=0, sticky="ew")
         row_counter += 1
+        
         def open_face_chooser():
-            face_chooser_window = tk.Toplevel(root, bg=background_color)
-            face_chooser_window.geometry("640x560")
-            face_chooser_window.grid_rowconfigure(0, weight=1)
-            face_chooser_window.grid_columnconfigure(0, weight=1)
-            face_chooser_window.grid_rowconfigure(1, weight=1)
+            face_chooser_window.deiconify()
+        def close_face_chooser():
+            face_chooser_window.withdraw()
+       
+        face_chooser_window = tk.Toplevel(root, bg=background_color)
+        face_chooser_window.attributes("-topmost", True)
+        face_chooser_window.geometry("640x560")
+        face_chooser_window.grid_rowconfigure(0, weight=1)
+        face_chooser_window.grid_columnconfigure(0, weight=1)
+        face_chooser_window.grid_rowconfigure(1, weight=1)
 
-            video_faces = tk.Frame(face_chooser_window, bg=background_color)
-            video_faces.grid(row=0, column=0, sticky="ew")
-            video_faces.grid_rowconfigure(0, weight=1)
-            video_faces.grid_columnconfigure(0, weight=1)
-            faces_listbox = ScrolledListBox_horizontal(video_faces)
-            faces_listbox.configure(background=background_color)
-            faces_listbox.selector_color = selector_color
-            faces_listbox.text_color = text_color
-            faces_listbox.grid(row=0, column=0, sticky="nsew")
-            added_faces = tk.Frame(face_chooser_window, bg=background_color)
-            added_faces.grid(row=1, column=0, sticky="ew")
-            added_faces.grid_rowconfigure(0, weight=1)
-            added_faces.grid_columnconfigure(0, weight=1)
-            faces_listbox2 = ScrolledListBox_horizontal(added_faces)
-            faces_listbox2.configure(background=background_color)
-            faces_listbox2.selector_color = selector_color
-            faces_listbox2.text_color = text_color
-            faces_listbox2.grid(row=0, column=0, sticky="nsew")
-            faces_listbox2.other_widget = faces_listbox
-            faces_listbox.other_widget = faces_listbox2
-            face_chooser_window.update_idletasks()
-            '''# Load some sample image pairs
-            left_image_paths = ["face.jpg", "rick.png"]
-            right_image_paths = left_image_paths[::-1]
-            
-            right_images = [Image.open(image_path) for image_path in left_image_paths]
-            left_images = ["1", "2", "3"]
-            
-            # Insert data into the ScrolledImageList
-            image_pair_list = list(zip(left_images, right_images))
-            faces_listbox.insert_data(image_pair_list)
-            faces_listbox2.insert_data(image_pair_list)
-            faces_listbox2.add_item("banana", right_images[0])
-            faces_listbox2.add_item("banana2", right_images[0])
-            faces_listbox2.add_item("banana3", right_images[0])'''
-            def find_and_add_faces():
-                try:
-                    image = original_image_label.image
-                    image_width = image.width()
-                    image_height = image.height()
-                    #print(relative_x, relative_y)
-                    bboxes = []
-                    faces = face_analysers[0].get(videos[current_video]['original_image'])
-                    for face in faces:    
-                        bboxes.append([face.bbox, face])
-                    height, width = videos[current_video]['original_image'].shape[:2]
-                    images = []
-                    for bbox, face in bboxes:
-                        images.append([Image.fromarray(cv2.cvtColor(videos[current_video]['original_image'][int(bbox[1]):int(bbox[3]), int(bbox[0]):int(bbox[2])], cv2.COLOR_BGR2RGB)), face])
-                    good_images = []
-                    for i, f in images:
-                        allowed = True
-                        a = f.normed_embedding
-                        for (_, _, tt) in faces_listbox.data_list:
-                            _, allow = compute_cosine_distance(a,tt , 0.75)
-                            if allow:
-                                allowed = False
-                                break
-                        if allowed:
-                            faces_listbox.add_item("unselected", i, a)
-                    
-                #for i in image_pair_list:
-                #    faces_listbox2.add_item(*i)
-                #faces_listbox2.insert_data(image_pair_list)
-                except Exception as e:
-                    print(f"HUSTON, WE HAD A PROBLEM AT FINDING FACES: {e}")
-            find_faces_in_frame_button = tk.Button(face_chooser_window, text="Find faces", bg=button_color, fg=text_color, command=find_and_add_faces)
-            find_faces_in_frame_button.grid(row=2, column=0)
+        video_faces = tk.Frame(face_chooser_window, bg=background_color)
+        video_faces.grid(row=0, column=0, sticky="ew")
+        video_faces.grid_rowconfigure(0, weight=1)
+        video_faces.grid_columnconfigure(0, weight=1)
+        faces_listbox = ScrolledListBox_horizontal(video_faces)
+        faces_listbox.configure(background=background_color)
+        faces_listbox.selector_color = selector_color
+        faces_listbox.text_color = text_color
+        faces_listbox.grid(row=0, column=0, sticky="nsew")
+        added_faces = tk.Frame(face_chooser_window, bg=background_color)
+        added_faces.grid(row=1, column=0, sticky="ew")
+        added_faces.grid_rowconfigure(0, weight=1)
+        added_faces.grid_columnconfigure(0, weight=1)
+        faces_listbox2 = ScrolledListBox_horizontal(added_faces)
+        faces_listbox2.configure(background=background_color)
+        faces_listbox2.selector_color = selector_color
+        faces_listbox2.text_color = text_color
+        faces_listbox2.grid(row=0, column=0, sticky="nsew")
+        faces_listbox2.other_widget = faces_listbox
+        faces_listbox.other_widget = faces_listbox2
+        faces_listbox2.order = 1
+        face_chooser_window.update_idletasks()
+        '''# Load some sample image pairs
+        left_image_paths = ["face.jpg", "rick.png"]
+        right_image_paths = left_image_paths[::-1]
+        
+        right_images = [Image.open(image_path) for image_path in left_image_paths]
+        left_images = ["1", "2", "3"]
+        
+        # Insert data into the ScrolledImageList
+        image_pair_list = list(zip(left_images, right_images))
+        faces_listbox.insert_data(image_pair_list)
+        faces_listbox2.insert_data(image_pair_list)
+        faces_listbox2.add_item("banana", right_images[0])
+        faces_listbox2.add_item("banana2", right_images[0])
+        faces_listbox2.add_item("banana3", right_images[0])'''
+        def find_and_add_faces():
+            try:
+                image = original_image_label.image
+                image_width = image.width()
+                image_height = image.height()
+                #print(relative_x, relative_y)
+                bboxes = []
+                faces = face_analysers[0].get(videos[current_video]['original_image'])
+                for face in faces:    
+                    bboxes.append([face.bbox, face])
+                height, width = videos[current_video]['original_image'].shape[:2]
+                images = []
+                for bbox, face in bboxes:
+                    images.append([Image.fromarray(cv2.cvtColor(videos[current_video]['original_image'][int(bbox[1]):int(bbox[3]), int(bbox[0]):int(bbox[2])], cv2.COLOR_BGR2RGB)), face])
+                good_images = []
+                for i, f in images:
+                    allowed = True
+                    a = f.normed_embedding
+                    for (_, _, tt) in faces_listbox.data_list:
+                        _, allow = compute_cosine_distance(a,tt.normed_embedding , 0.75)
+                        if allow:
+                            allowed = False
+                            break
+                    if allowed:
+                        faces_listbox.add_item("unselected", i, f)
+                
+            #for i in image_pair_list:
+            #    faces_listbox2.add_item(*i)
+            #faces_listbox2.insert_data(image_pair_list)
+            except Exception as e:
+                print(f"HUSTON, WE HAD A PROBLEM AT FINDING FACES: {e}")
+        def add_faces():
+            filex = askopenfilename(title="Select a face")
+            if filex:
+                im = cv2.imread(filex)
+                bboxes = []
+                faces = face_analysers[0].get(im)
+                for face in faces:    
+                    bboxes.append([face.bbox, face])
+                images = []
+                for bbox, face in bboxes:
+                    images.append([Image.fromarray(cv2.cvtColor(im[int(bbox[1]):int(bbox[3]), int(bbox[0]):int(bbox[2])], cv2.COLOR_BGR2RGB)), face])
+                for i, f in images:
+                    a = f.normed_embedding
+                    faces_listbox2.add_item(len(faces_listbox2.data_list), i, f)
+
+
+        find_faces_in_frame_button = tk.Button(face_chooser_window, text="Find faces", bg=button_color, fg=text_color, command=find_and_add_faces)
+        find_faces_in_frame_button.grid(row=2, column=0)
+        add_faces_in_frame_button = tk.Button(face_chooser_window, text="Add faces", bg=button_color, fg=text_color, command=add_faces)
+        add_faces_in_frame_button.grid(row=3, column=0)
+        unselect_face_button = tk.Button(face_chooser_window, text="unselect chosen face", bg=button_color, fg=text_color, command=faces_listbox.unselect)
+        unselect_face_button.grid(row=4, column=0)
+        face_chooser_window.withdraw()
+        face_chooser_window.protocol("WM_DELETE_WINDOW", close_face_chooser)
+
+
         buttonxx = tk.Button(left_frame, text="Choose faces", bg=button_color, fg=text_color, command=open_face_chooser)
         buttonxx.grid(row=row_counter, column=0)
         row_counter += 1
@@ -1146,63 +1181,165 @@ while True:
         else:
             test1 = args['alpha'] != 0
         _upscaled = False
-        if test1:        
-            faces = face_analysers[sw].get(frame)
-            bboxes = []
-            for face in faces:
-                if args['selective'] != '':
-                    a = target_embedding.normed_embedding
-                    b = face.normed_embedding
-                    _, allow = compute_cosine_distance(a,b , 0.75)
-                    if not allow:
-                        continue
-                bboxes.append(face.bbox)
-                ttest1 = False
-                if not args['cli']:
-                    if faceswapper_checkbox_var.get() == True:
-                        ttest1=True
-                if not args['no_faceswap'] and (ttest1 == True or args['cli']):
-                    occluder_works= False
+        if test1:
+            advanced_search = False
+            if not args['cli']:
+                advanced_search = advanced_face_detector_var.get()
+            else:
+                pass
+            
+            if not advanced_search:
+                faces = face_analysers[sw].get(frame)
+                bboxes = []
+                for face in faces:
+                    if args['selective'] != '':
+                        #a = target_embedding.normed_embedding
+                        allowed_list = []
+                        for xx in range(len(faces_listbox.data_list)):
+                            a = faces_listbox.data_list[xx][2].normed_embedding
+                            b = face.normed_embedding
+                            _, allow = compute_cosine_distance(a,b , 0.75)
+                            allowed_list.append(allow)
+                        if len(allowed_list) == 0:
+                            continue
+                        try:
+                            indexx = allowed_list.index(True)
+                        except ValueError:
+                            continue
+                            #if not allow:
+                            #    break
+                        if faces_listbox.data_list[indexx][0] == "unselected":
+                            continue
+                    bboxes.append(face.bbox)
+                    ttest1 = False
                     if not args['cli']:
-                        occluder_works = int(occluder_checkbox_var.get())
-                        #print(occluder_works)
-                    clip_works = False
-                    if not args['cli']:
-                        clip_works = int(enable_clip_var.get())
-                    frame = face_swappers[sw].get(frame, face, get_source_face(),occluder_works, clip_works, [clip_pos_prompt, clip_neg_prompt], paste_back=True)
-                    swapped_frame = frame.copy()
-                try:
-                    test1 = checkbox_var.get() == 1 
-                    test2 = not enhancer_choice.get() == "codeformer"
-                except:
-                    test1 = False
-                    test2 = False
-                if (test1 and test2) or (args['face_enhancer'] != 'none' and args['cli'] and args['face_enhancer'] != 'codeformer'):
-                    try:
-                        i = face.bbox
-                        x1, y1, x2, y2 = int(i[0]),int(i[1]),int(i[2]),int(i[3])
-                        x1 = max(x1-adjust_x1, 0)
-                        y1 = max(y1-adjust_y1, 0)
-                        x2 = min(x2+adjust_x2, videos[current_loop_video]['width'])
-                        y2 = min(y2+adjust_y2, videos[current_loop_video]['height'])
-                        facer = frame[y1:y2, x1:x2]
+                        if faceswapper_checkbox_var.get() == True:
+                            ttest1=True
+                    if not args['no_faceswap'] and (ttest1 == True or args['cli']):
+                        occluder_works= False
                         if not args['cli']:
-                            enhancer_choice_value = enhancer_choice.get()
+                            occluder_works = int(occluder_checkbox_var.get())
+                            #print(occluder_works)
+                        clip_works = False
+                        if not args['cli']:
+                            clip_works = int(enable_clip_var.get())
+                        if args['selective'] != '':
+                            try:
+                                fff = faces_listbox2.data_list[int(faces_listbox.data_list[indexx][0])][2]
+                            except:
+                                print("errorrr")
+                                fff = get_source_face()
                         else:
-                            enhancer_choice_value = args['face_enhancer']
-                        if enhancer_choice_value == "fastface enhancer" or (enhancer_choice_value == "ffe" and not args['lowmem']):
-                            facex = upscale_image(facer, load_generator())
-                        elif enhancer_choice_value == "gfpgan":
-                            facex = restorer_enhance(facer)
-                        elif enhancer_choice_value == "gfpgan onnx" or enhancer_choice_value == "gpfgan_onnx":
-                            facex = load_gfpganonnx().forward(facer)
-                        elif enhancer_choice_value == "real esrgan" or enhancer_choice_value == "real_esrgan":
-                            facex = realesrgan_enhance(facer)
-                        facex = cv2.resize(facex, ((x2-x1), (y2-y1)))
-                        frame[y1:y2, x1:x2] = facex
-                        _upscaled = True
-                    except Exception as e:
-                        print(f"ee: {e}")
+                            fff = get_source_face()
+                        frame = face_swappers[sw].get(frame, face, fff,occluder_works, clip_works, [clip_pos_prompt, clip_neg_prompt], paste_back=True)
+                        swapped_frame = frame.copy()
+                    try:
+                        test1 = checkbox_var.get() == 1 
+                        test2 = not enhancer_choice.get() == "codeformer"
+                    except:
+                        test1 = False
+                        test2 = False
+                    if (test1 and test2) or (args['face_enhancer'] != 'none' and args['cli'] and args['face_enhancer'] != 'codeformer'):
+                        try:
+                            i = face.bbox
+                            x1, y1, x2, y2 = int(i[0]),int(i[1]),int(i[2]),int(i[3])
+                            x1 = max(x1-adjust_x1, 0)
+                            y1 = max(y1-adjust_y1, 0)
+                            x2 = min(x2+adjust_x2, videos[current_loop_video]['width'])
+                            y2 = min(y2+adjust_y2, videos[current_loop_video]['height'])
+                            facer = frame[y1:y2, x1:x2]
+                            if not args['cli']:
+                                enhancer_choice_value = enhancer_choice.get()
+                            else:
+                                enhancer_choice_value = args['face_enhancer']
+                            if enhancer_choice_value == "fastface enhancer" or (enhancer_choice_value == "ffe" and not args['lowmem']):
+                                facex = upscale_image(facer, load_generator())
+                            elif enhancer_choice_value == "gfpgan":
+                                facex = restorer_enhance(facer)
+                            elif enhancer_choice_value == "gfpgan onnx" or enhancer_choice_value == "gpfgan_onnx":
+                                facex = load_gfpganonnx().forward(facer)
+                            elif enhancer_choice_value == "real esrgan" or enhancer_choice_value == "real_esrgan":
+                                facex = realesrgan_enhance(facer)
+                            facex = cv2.resize(facex, ((x2-x1), (y2-y1)))
+                            frame[y1:y2, x1:x2] = facex
+                            _upscaled = True
+                        except Exception as e:
+                            print(f"ee: {e}")
+            else:
+                init_advanced_face_detector() #will not do anything if loaded
+                rotation_angles = calculate_rotation_angles(frame)
+                for it in range(len(rotation_angles)):
+                    #a = frame[bbox[1]:bbox[3], bbox[0]:bbox[2]]
+                    #cv2.imshow('a', a)
+                    #cv2.waitKey(0)
+                    #rotation_angle = calculate_rotation_angle(a)
+                    print(rotation_angles[it])
+                    ss = frame.shape
+                    frame, rotation_matrix = rotate_image(frame, -rotation_angles[it])
+                    
+                    rotated=False
+                    faces = face_analysers[sw].get(frame)
+                    for face in faces:
+                        if args['selective'] != '':
+                            a = target_embedding.normed_embedding
+                            b = face.normed_embedding
+                            _, allow = compute_cosine_distance(a,b , 0.75)
+                            if not allow:
+                                continue
+                        #bboxes.append(face.bbox)
+                        ttest1 = False
+                        if not args['cli']:
+                            if faceswapper_checkbox_var.get() == True:
+                                ttest1=True
+                        if not args['no_faceswap'] and (ttest1 == True or args['cli']):
+                            occluder_works= False
+                            if not args['cli']:
+                                occluder_works = int(occluder_checkbox_var.get())
+                                #print(occluder_works)
+                            clip_works = False
+                            if not args['cli']:
+                                clip_works = int(enable_clip_var.get())
+                            frame = face_swappers[sw].get(frame, face, get_source_face(),occluder_works, clip_works, [clip_pos_prompt, clip_neg_prompt], paste_back=True)
+                            cv2.imshow('a', frame)
+                            #frame = frame[0:videos[current_loop_video]['height'], 0:videos[current_loop_video]['width']]
+                            rotated = True
+                            swapped_frame = rotate_back(frame, rotation_matrix, ss).copy()
+                        try:
+                            test1 = checkbox_var.get() == 1 
+                            test2 = not enhancer_choice.get() == "codeformer"
+                        except:
+                            test1 = False
+                            test2 = False
+                        if (test1 and test2) or (args['face_enhancer'] != 'none' and args['cli'] and args['face_enhancer'] != 'codeformer'):
+                            try:
+                                i = face.bbox
+                                x1, y1, x2, y2 = int(i[0]),int(i[1]),int(i[2]),int(i[3])
+                                x1 = max(x1-adjust_x1, 0)
+                                y1 = max(y1-adjust_y1, 0)
+                                x2 = min(x2+adjust_x2, videos[current_loop_video]['width'])
+                                y2 = min(y2+adjust_y2, videos[current_loop_video]['height'])
+                                facer = frame[y1:y2, x1:x2]
+                                if not args['cli']:
+                                    enhancer_choice_value = enhancer_choice.get()
+                                else:
+                                    enhancer_choice_value = args['face_enhancer']
+                                if enhancer_choice_value == "fastface enhancer" or (enhancer_choice_value == "ffe" and not args['lowmem']):
+                                    facex = upscale_image(facer, load_generator())
+                                elif enhancer_choice_value == "gfpgan":
+                                    facex = restorer_enhance(facer)
+                                elif enhancer_choice_value == "gfpgan onnx" or enhancer_choice_value == "gpfgan_onnx":
+                                    facex = load_gfpganonnx().forward(facer)
+                                elif enhancer_choice_value == "real esrgan" or enhancer_choice_value == "real_esrgan":
+                                    facex = realesrgan_enhance(facer)
+                                facex = cv2.resize(facex, ((x2-x1), (y2-y1)))
+                                frame[y1:y2, x1:x2] = facex
+                                _upscaled = True
+                            except Exception as e:
+                                print(f"ee: {e}")
+
+                    frame = rotate_back(frame, rotation_matrix, ss)#[0:videos[current_loop_video]['height'], 0:videos[current_loop_video]['width']]
+
+
             if not args['cli']:
                 if enhancer_choice.get() == "codeformer" and checkbox_var.get() == 1 : 
                     if args['fastload']:
@@ -1215,6 +1352,7 @@ while True:
                     if args['fastload']:
                         from plugins.codeformer_app_cv2 import inference_app as codeformer
                     frame = codeformer(frame, args['codeformer_background_enhance'], args['codeformer_face_upscale'], args['codeformer_upscale'], float(args['codeformer_fidelity']), args['codeformer_skip_if_no_face'])
+            
             if not args['cli']:
                 test1 = alpha2 != 1
             else:
@@ -1230,7 +1368,7 @@ while True:
             if test1:
                 #print(alpha)
                 frame = merge_face(frame, original_frame, alpha)
-            return bboxes, frame, original_frame
+            return [], frame, original_frame
         return [], frame, original_frame
 
     def cv2_image_to_tkinter(cv2_image, target_width, target_height, pad_width=30, pad_height=50):
@@ -1469,7 +1607,7 @@ while True:
             #root.after(1, update_progress_length, frame_number)
             #update_progress_bar( 10, 0, frame_number)
             count = -1
-            videos[current_video]['current_frame_index'] = count
+            #videos[current_video]['current_frame_index'] = count
             if args['vcam'] and videos[current_video]["type"] == 1:
                 cam = pyvirtualcam.Camera(width=width, height=height, fps=videos[current_video]["fps"])
             progressbar = tqdm(total=videos[current_video]["frame_number"])
@@ -1580,17 +1718,17 @@ while True:
                             break
                     except KeyboardInterrupt:
                         break
-                    except Exception as e:
-                        if "main thread is not in main loop" in str(e):
-                            return
-                        if "list index out of range" in str(e):
-                            print('index')
-                            break
-                        if "'NoneType' object has no attribute 'shape'" in str(e) and isinstance(videos[current_loop_video]['target_path'], int):
-                            videos[current_loop_video]['cap'] = cv2.VideoCapture(videos[current_loop_video]['target_path'])
-                            videos[current_loop_video]['cap'].set(cv2.CAP_PROP_FRAME_WIDTH, globalsz.width)
-                            videos[current_loop_video]['cap'].set(cv2.CAP_PROP_FRAME_HEIGHT, globalsz.height)
-                        print(f"HUSTON, WE HAD AN EXCEPTION, PROCEED WITH CAUTION, SEND RICHARD THIS: {e}. Line 947")
+                    #except Exception as e:
+                    #    if "main thread is not in main loop" in str(e):
+                    #        return
+                    #    if "list index out of range" in str(e):
+                    #        print('index')
+                    #        break
+                    #    if "'NoneType' object has no attribute 'shape'" in str(e) and isinstance(videos[current_loop_video]['target_path'], int):
+                    #        videos[current_loop_video]['cap'] = cv2.VideoCapture(videos[current_loop_video]['target_path'])
+                    #        videos[current_loop_video]['cap'].set(cv2.CAP_PROP_FRAME_WIDTH, globalsz.width)
+                    #        videos[current_loop_video]['cap'].set(cv2.CAP_PROP_FRAME_HEIGHT, globalsz.height)
+                    #    print(f"HUSTON, WE HAD AN EXCEPTION, PROCEED WITH CAUTION, SEND RICHARD THIS: {e}. Line 947")
                 for i in videos[current_video]['temp']:
                     bbox, videos[current_video]["swapped_image"], videos[current_video]['original_image'] = i.join()
                     if not args['cli']:
@@ -1651,12 +1789,12 @@ while True:
         
             except KeyboardInterrupt:
                 break
-            except Exception as e:
-                if "main thread is not in main loop" in str(e):
-                    return
-                #if "list index out of range" in str(e):
-                #    break
-                print(f"HUSTON, WE HAD AN EXCEPTION, PROCEED WITH CAUTION, SEND RICHARD THIS: {e}. Line 1229")
+            #except Exception as e:
+            #    if "main thread is not in main loop" in str(e):
+            #        return
+            #    #if "list index out of range" in str(e):
+            #    #    break
+            #    print(f"HUSTON, WE HAD AN EXCEPTION, PROCEED WITH CAUTION, SEND RICHARD THIS: {e}. Line 1229")
             
             
         print("Processing finished, you may close the window now")
@@ -1727,6 +1865,13 @@ while True:
                             render_button.config(state=tk.ACTIVE)
                             stop_rendering_button.config(state=tk.DISABLED)
                     current_video = sel
+                except:
+                    pass
+                try:
+                    if face_selector_var.get() == 1:
+                        args['selective'] = True
+                    else:
+                        args['selective'] = ''
                 except:
                     pass
                 root.after(30, update_selector, new_len)

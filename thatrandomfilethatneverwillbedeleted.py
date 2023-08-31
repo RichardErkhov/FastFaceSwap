@@ -307,8 +307,9 @@ class ScrolledListBox_horizontal(AutoScroll_horizontal, tk.Canvas):
         self.text_color = "white"
         self.other_widget = None
         self.selected_index = None
+        self.order = 0
 
-    def _update_layout(self, event):
+    def _update_layout(self, event=None):
         print('x')
         canvas_height = self.winfo_height() - 8
         if canvas_height < 50:  # Minimum height
@@ -353,13 +354,37 @@ class ScrolledListBox_horizontal(AutoScroll_horizontal, tk.Canvas):
             self.itemconfig(self.highlighted_rect, fill='')  # Clear the previous highlight by setting its fill to empty
         if self.selected_index == idx:
             print(idx)
+            self.selected_index = None
             return
         # Highlight the bounding rectangle associated with the clicked item
         self.highlighted_rect = self.image_cache[idx][3]
         self.itemconfig(self.highlighted_rect, fill=self.selector_color)
 
         self.selected_index = idx  # Store the actual data index
+
+        if self.order == 0:
+            first_widget = self
+            second_widget = self.other_widget
+        else:
+            first_widget = self.other_widget
+            second_widget = self
+
+
         print(idx)  # print the index of the clicked item
+        if second_widget.selected_index != None:
+            print(f"merging {first_widget.selected_index} and {second_widget.selected_index}")
+            #second_widget.data_list[second_widget.selected_index][0] = f"{first_widget.selected_index}"
+            first_widget.data_list[first_widget.selected_index][0] = f"{second_widget.selected_index}"
+            first_widget.selected_index = None
+            second_widget.selected_index = None
+            first_widget.itemconfig(first_widget.highlighted_rect, fill='')
+            second_widget.itemconfig(second_widget.highlighted_rect, fill='')
+            first_widget._update_layout()
+            second_widget._update_layout()
+    def unselect(self):
+        if self.selected_index != None:
+            self.data_list[self.selected_index][0] = f"unselected"
+            self._update_layout()
 
     def reset_images(self):
         for i, image in self.original_images.items():

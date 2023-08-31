@@ -44,7 +44,7 @@ import sys
 #if not globalsz.args['nocuda']:
 #    torch.backends.cudnn.benchmark = True
 import tqdm
-
+import mediapipe as mp
 if not globalsz.args['fastload']:
     from basicsr.archs.rrdbnet_arch import RRDBNet
     from basicsr.utils.download_util import load_file_from_url
@@ -70,7 +70,151 @@ if globalsz.args['experimental']:
     except ImportError:
         print("In the experimental mode, you have to pip install imutils")
         exit()
+import numpy as np
+
+def calculate_rotation_angles(image):
+    angles = []  # Initialize an empty list to store angles for each face
+    
+    with globalsz.advanced_face_detector_lock:
+        results = globalsz.face_mesh.process(image)  # cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+
+    if results.multi_face_landmarks:
+        h, w, c = image.shape
+        for face_landmarks in results.multi_face_landmarks:  # Iterate over each face
+            landmarks = face_landmarks.landmark
+            
+            # Identify specific landmarks for angle calculation
+            bottom_middle_landmark = (int(landmarks[175].x * w), int(landmarks[175].y * h))
+            landmark_151 = (int(landmarks[151].x * w), int(landmarks[151].y * h))
+
+            # Calculate the rotation angle for this face
+            angle = np.arctan2(
+                bottom_middle_landmark[0] - landmark_151[0],
+                landmark_151[1] - bottom_middle_landmark[1]
+            ) * 180 / np.pi
+
+            # Append the angle to the list
+            angles.append(angle + 180)
         
+        return angles  # Return the list of angles
+    
+    return [0]  # Return [0] if no faces are detected
+
+# Function to rotate an image
+def rotate_image(image, angle):
+    h, w = image.shape[:2]
+    center = (w // 2, h // 2)
+    rotation_matrix = cv2.getRotationMatrix2D(center, -angle, 1.0)
+    
+    # Calculate new dimensions after rotation
+    cos_angle = np.abs(rotation_matrix[0, 0])
+    sin_angle = np.abs(rotation_matrix[0, 1])
+    new_w = int(w * cos_angle + h * sin_angle)
+    new_h = int(w * sin_angle + h * cos_angle)
+    
+    # Adjust the translation part of the rotation matrix
+    rotation_matrix[0, 2] += (new_w - w) / 2
+    rotation_matrix[1, 2] += (new_h - h) / 2
+    
+    rotated_image = cv2.warpAffine(image, rotation_matrix, (new_w, new_h))
+    return rotated_image, rotation_matrix
+
+# Function to rotate an image back to its original orientation
+def rotate_back(image, rotation_matrix, original_shape):
+    h, w = original_shape[:2]
+    rotated_back = cv2.warpAffine(image, rotation_matrix, (w, h), flags=cv2.WARP_INVERSE_MAP)
+    return rotated_back
+def get_face_details(image, adjustment_pixels):
+    # Initialize empty lists for bounding boxes and rotation angles
+    adjusted_bboxes = []
+    rotation_angles = []
+    
+    with globalsz.advanced_face_detector_lock:
+        results = globalsz.face_mesh.process(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+
+    if results.multi_face_landmarks:
+        h, w, c = image.shape
+
+        for face_landmarks in results.multi_face_landmarks:
+            # Bounding box calculation
+            min_x, min_y, max_x, max_y = w, h, 0, 0
+            for landmark in face_landmarks.landmark:
+                x, y = int(landmark.x * w), int(landmark.y * h)
+                min_x = min(min_x, x)
+                min_y = min(min_y, y)
+                max_x = max(max_x, x)
+                max_y = max(max_y, y)
+
+            # Adjust the bounding box
+            min_x -= adjustment_pixels
+            min_y -= adjustment_pixels
+            max_x += adjustment_pixels
+            max_y += adjustment_pixels
+
+            # Ensure the adjusted bounding box stays within image boundaries
+            min_x = max(min_x, 0)
+            min_y = max(min_y, 0)
+            max_x = min(max_x, w)
+            max_y = min(max_y, h)
+
+            adjusted_bboxes.append((min_x, min_y, max_x, max_y))
+
+            # Rotation angle calculation
+            landmarks = face_landmarks.landmark
+            bottom_middle_landmark = (int(landmarks[175].x * w), int(landmarks[175].y * h))
+            landmark_151 = (int(landmarks[151].x * w), int(landmarks[151].y * h))
+
+            angle = np.arctan2(
+                bottom_middle_landmark[0] - landmark_151[0],
+                landmark_151[1] - bottom_middle_landmark[1]
+            ) * 180 / np.pi
+
+            rotation_angles.append(angle + 180)
+
+    return adjusted_bboxes, rotation_angles
+
+
+def get_face_bboxes(image, adjustment_pixels):
+    with globalsz.advanced_face_detector_lock:
+        results = globalsz.face_mesh.process(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+
+    adjusted_bboxes = []
+
+    if results.multi_face_landmarks:
+        h, w, c = image.shape
+
+        for face_landmarks in results.multi_face_landmarks:
+            min_x, min_y, max_x, max_y = w, h, 0, 0
+
+            for landmark in face_landmarks.landmark:
+                x, y = int(landmark.x * w), int(landmark.y * h)
+                min_x = min(min_x, x)
+                min_y = min(min_y, y)
+                max_x = max(max_x, x)
+                max_y = max(max_y, y)
+
+            # Adjust the bounding box by adding N pixels to each side
+            min_x -= adjustment_pixels
+            min_y -= adjustment_pixels
+            max_x += adjustment_pixels
+            max_y += adjustment_pixels
+
+            # Ensure the adjusted bounding box stays within image boundaries
+            min_x = max(min_x, 0)
+            min_y = max(min_y, 0)
+            max_x = min(max_x, w)
+            max_y = min(max_y, h)
+
+            adjusted_bboxes.append((min_x, min_y, max_x, max_y))
+
+    return adjusted_bboxes
+def init_advanced_face_detector():
+    if isinstance(globalsz.mp_face_mesh, NoneType):
+        globalsz.mp_face_mesh = mp.solutions.face_mesh
+    if isinstance(globalsz.face_mesh, NoneType):
+        globalsz.face_mesh = globalsz.mp_face_mesh.FaceMesh(min_detection_confidence=0.5, min_tracking_confidence=0.5)
+    
+
 def restart_program():
     """Restarts the current program."""
     python = sys.executable
@@ -574,7 +718,7 @@ def create_new_cap(file, face_, output_,batch_post=""):
             "target_path":file,
             "save_path":name,
             "save_temp_path":name_temp,
-            "current_frame_index":0,
+            "current_frame_index":isinstance(file, int),
             "old_number":-1,
             "frame_number":frame_number,
             "rendering":False,
