@@ -45,6 +45,8 @@ import sys
 #    torch.backends.cudnn.benchmark = True
 import tqdm
 import mediapipe as mp
+import magic    #pip install python-magic-bin https://github.com/Yelp/elastalert/issues/1927
+mime = magic.Magic(mime=True)
 if not globalsz.args['fastload']:
     from basicsr.archs.rrdbnet_arch import RRDBNet
     from basicsr.utils.download_util import load_file_from_url
@@ -693,67 +695,134 @@ def create_batch_cap(file):
     return [cap, fps, width, height, out, name, file, frame_number]
 
 def create_new_cap(file, face_, output_,batch_post=""):
-    if globalsz.args['camera_fix'] == True:
-        cap = cv2.VideoCapture(file, cv2.CAP_DSHOW)
-    else:
-        cap = cv2.VideoCapture(file)
-    if isinstance(file, int):
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, globalsz.width)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, globalsz.height)
-    fourcc = cv2.VideoWriter_fourcc(*'H265')
-    cap.set(cv2.CAP_PROP_FOURCC, fourcc)
-    # Get the video's properties
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    output_filename = os.path.basename(output_)
-    name = os.path.join(output_.rstrip(output_filename).rstrip(), f"{output_filename}{batch_post}")
-    name_temp = os.path.join(output_.rstrip(output_filename).rstrip(), f"{output_filename}{batch_post}_temp.mp4")#f"{args['output']}_temp{args['batch']}.mp4"
-    out = cv2.VideoWriter(name_temp, fourcc, fps, (width, height))
-    frame_number = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    #face_ = 
-    return {"type": 1,
-            "cap":cap,
-            "original_image":None,
-            "swapped_image":None,
-            "target_path":file,
-            "save_path":name,
-            "save_temp_path":name_temp,
-            "current_frame_index":isinstance(file, int),
-            "old_number":-1,
-            "frame_number":frame_number,
-            "rendering":False,
-            "width":width,
-            "height":height,
-            "fps":fps,
-            "faces_to_swap":None,
-            "settings":{
-                "threads":None,
-                "enable_swapper": not globalsz.args['no_faceswap'],
-                "enable_enhancer": False,
-                "enhancer_choice": "none",
-                "bbox_adjust": [50, 50, 50, 50],
-                "codeformer_fidelity":0.1,
-                "blender":1.0,
-                "codeformer_skip_if_no_face": False,
-                "codeformer_upscale_face": True,
-                "codeformer_enhancer_background": False,
-                "codeformer_upscale_amount":1,
-                },
-            "out_settings_for_resetting":{
-                "name_temp":name_temp,
-                "fourcc":fourcc,
-                "fps":fps,
+    try:
+        video_type = mime.from_file(file)
+    except Exception as e:
+        print(f"{file} is not image or video, error from video_type: {e}")
+        return
+    if video_type.startswith('video'):
+        if globalsz.args['camera_fix'] == True:
+            cap = cv2.VideoCapture(file, cv2.CAP_DSHOW)
+        else:
+            cap = cv2.VideoCapture(file)
+        if isinstance(file, int):
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, globalsz.width)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, globalsz.height)
+        fourcc = cv2.VideoWriter_fourcc(*'H265')
+        cap.set(cv2.CAP_PROP_FOURCC, fourcc)
+        # Get the video's properties
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        output_filename = os.path.basename(output_)
+        name = os.path.join(output_.rstrip(output_filename).rstrip(), f"{output_filename}{batch_post}")
+        name_temp = os.path.join(output_.rstrip(output_filename).rstrip(), f"{output_filename}{batch_post}_temp.mp4")#f"{args['output']}_temp{args['batch']}.mp4"
+        out = cv2.VideoWriter(name_temp, fourcc, fps, (width, height))
+        frame_number = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        #face_ = 
+        return {"type": 1,
+                "cap":cap,
+                "original_image":None,
+                "swapped_image":None,
+                "target_path":file,
+                "save_path":name,
+                "save_temp_path":name_temp,
+                "current_frame_index":isinstance(file, int),
+                "old_number":-1,
+                "frame_number":frame_number,
+                "rendering":False,
                 "width":width,
                 "height":height,
-            },
-            "out":out,
-            "count":-1,
-            "first_frame":get_nth_frame(cap, 0),
-            "temp": [],
-            "face":face_
-            }
+                "fps":fps,
+                "faces_to_swap":None,
+                "settings":{
+                    "threads":None,
+                    "enable_swapper": not globalsz.args['no_faceswap'],
+                    "enable_enhancer": False,
+                    "enhancer_choice": "none",
+                    "bbox_adjust": [50, 50, 50, 50],
+                    "codeformer_fidelity":0.1,
+                    "blender":1.0,
+                    "codeformer_skip_if_no_face": False,
+                    "codeformer_upscale_face": True,
+                    "codeformer_enhancer_background": False,
+                    "codeformer_upscale_amount":1,
+                    },
+                "out_settings_for_resetting":{
+                    "name_temp":name_temp,
+                    "fourcc":fourcc,
+                    "fps":fps,
+                    "width":width,
+                    "height":height,
+                },
+                "out":out,
+                "count":-1,
+                "first_frame":get_nth_frame(cap, 0),
+                "temp": [],
+                "face":face_
+                }
+    if video_type.startswith('image'):
+        output_filename = os.path.basename(output_)
+        name = os.path.join(output_.rstrip(output_filename).rstrip(), f"{output_filename}{batch_post}")
+        image = cv2.imread(file)
+        width, height = image.shape[:2]
+        return {"type": 0,
+                "cap": None,
+                "original_image":image,
+                "swapped_image":None,
+                "target_path":file,
+                "save_path":name,
+                "save_temp_path":None,
+                "current_frame_index":0,
+                "old_number":-1,
+                "frame_number":-1,
+                "rendering":False,
+                "width":width,
+                "height":height,
+                "fps":-1,
+                "faces_to_swap":None,
+                "settings":{
+                    "threads":None,
+                    "enable_swapper": not globalsz.args['no_faceswap'],
+                    "enable_enhancer": False,
+                    "enhancer_choice": "none",
+                    "bbox_adjust": [50, 50, 50, 50],
+                    "codeformer_fidelity":0.1,
+                    "blender":1.0,
+                    "codeformer_skip_if_no_face": False,
+                    "codeformer_upscale_face": True,
+                    "codeformer_enhancer_background": False,
+                    "codeformer_upscale_amount":1,
+                    },
+                "out_settings_for_resetting":None,
+                "out":None,
+                "count":-1,
+                "first_frame":image,#get_nth_frame(cap, 0),
+                "temp": [],
+                "face":face_}
+
+def write_frame(video):
+    if video["type"] == 0:
+        cv2.imwrite(video['save_path'], video['swapped_image'])
+        return
+    video['out'].write(video["swapped_image"])
+    return
+
+def get_frame(video, frame_index=-1, toret=False):
+    #if index == -1, just get the frame
+    if video['type'] == 0:
+        if toret:
+            return True, video["original_image"]
+        return video["original_image"]
+    if frame_index != -1:
+        return get_nth_frame(video['cap'], frame_index)
+    ret, frame = video['cap'].read()
+    if ret:
+        if toret:
+            return ret, frame
+        return frame
+    return ret, None
 
 def get_gpu_amount():
     num_devices = -1

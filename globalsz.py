@@ -24,3 +24,4 @@ face_mesh = None
 mp_face_mesh = None
 rembg_models = None
 rembg_lock = threading.Lock()
+waitx = False
