@@ -56,6 +56,8 @@ if not globalsz.args['fastload']:
     from scipy.spatial import distance
     import queue
     import torch
+    from rembg import remove as remove_bg
+    from rembg import new_session
 if not globalsz.lowmem:
     import tensorflow as tf
     physical_devices = tf.config.list_physical_devices('GPU')
@@ -438,7 +440,7 @@ class VideoCaptureThread:
             return frame
 
 
-def prepare_models(args):
+'''def prepare_models(args):
     providers = rt.get_available_providers()
     sess_options = rt.SessionOptions()
     sess_options.intra_op_num_threads = 8
@@ -458,7 +460,7 @@ def prepare_models(args):
     #face_analyser.models.pop("landmark_3d_68")
     #face_analyser.models.pop("landmark_2d_106")
     #face_analyser.models.pop("genderage")
-    return face_swapper, face_analyser
+    return face_swapper, face_analyser'''
 
 def upscale_image(image, generator ):
     image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
@@ -789,6 +791,36 @@ def create_configs_for_onnx():
         ]
         listx.append(providers)
     return listx
+def create_configs_for_onnx_rembg():
+    listx = []
+    gpu_amount = get_gpu_amount()
+    if gpu_amount == -1 and not globalsz.args['apple']:
+        return [('CPUExecutionProvider',),]
+    elif globalsz.args['apple']:
+        return [('CoreMLExecutionProvider',),]
+    gpu_list = list(range(gpu_amount))
+    if not globalsz.select_rembg_gpu == None:
+        gpu_list = globalsz.select_rembg_gpu
+    for idx in gpu_list:
+        providers = [('CUDAExecutionProvider', {
+            'device_id': idx,
+        #'gpu_mem_limit': 12 * 1024 * 1024 * 1024,
+        #'gpu_external_alloc': 0,
+        #'gpu_external_free': 0,
+        #'gpu_external_empty_cache': 1,
+        #'cudnn_conv_algo_search': 'EXHAUSTIVE',
+        #'cudnn_conv1d_pad_to_nc1d': 1,
+        #'arena_extend_strategy': 'kNextPowerOfTwo',
+        #'do_copy_in_default_stream': 1,
+        #'enable_cuda_graph': 0,
+        #'cudnn_conv_use_max_workspace': 1,
+        #'tunable_op_enable': 1,
+        #'enable_skip_layer_norm_strict_mode': 1,
+        #'tunable_op_tuning_enable': 1
+        }),'CPUExecutionProvider'
+        ]
+        listx.append(providers)
+    return listx
 
 def get_sess_options():
     sess_options = rt.SessionOptions()
@@ -798,6 +830,50 @@ def get_sess_options():
     sess_options.execution_order = rt.ExecutionOrder.PRIORITY_BASED
     return sess_options
 
+def prepare_rembg(args):
+    global remove_bg, new_session
+    if isinstance(globalsz.rembg_models, NoneType):
+        if args['fastload']:
+            from rembg import remove as remove_bg
+            from rembg import new_session
+        provider_list = create_configs_for_onnx_rembg()
+        #sess_options = get_sess_options()
+        globalsz.rembg_models = []
+        #for idx, providers in enumerate(provider_list):
+        globalsz.rembg_models.append(new_session(globalsz.rembg_model))#, providers=providers))
+    #return rembg_models
+    
+def remove_background(frame,args, ct=0, magic = True):
+    global remove_bg
+    with globalsz.rembg_lock:
+        prepare_rembg(args)
+    ct = 0
+    # Convert frame to PNG bytes
+    _, buffer = cv2.imencode('.png', frame)
+    frame_bytes = buffer.tobytes()
+
+    # Remove background
+    output_bytes = remove_bg(frame_bytes, session=globalsz.rembg_models[ct], post_process_mask=True, bgcolor=globalsz.rembg_color)  # Make the background fully transparent for now
+
+    # Convert bytes back to a NumPy array
+    nparr = np.frombuffer(output_bytes, np.uint8)
+    output_frame = cv2.imdecode(nparr, cv2.IMREAD_UNCHANGED)
+    if magic:
+        # Get the alpha channel
+        alpha_channel = output_frame[:, :, 3]
+
+        # Step 1: Dilate and Erode
+        kernel = np.ones((5,5), np.uint8)
+        alpha_channel = cv2.dilate(alpha_channel, kernel, iterations=1)
+        alpha_channel = cv2.erode(alpha_channel, kernel, iterations=1)
+
+        # Step 2: Blur and Threshold
+        alpha_channel = cv2.GaussianBlur(alpha_channel, (5, 5), 0)
+        _, alpha_channel = cv2.threshold(alpha_channel, 127, 255, cv2.THRESH_BINARY)
+
+        # Replace the alpha channel in the output frame
+        output_frame[:, :, 3] = alpha_channel
+    return output_frame
 
 def prepare_swappers_and_analysers(args):
     global get_model

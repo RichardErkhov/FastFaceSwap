@@ -468,6 +468,10 @@ while True:
         realtime_updater = ttk.Checkbutton(left_frame, text="realtime updater", variable=realtime_updater_var, style="TCheckbutton")
         realtime_updater.grid(row=row_counter, column=0)
         row_counter += 1
+        bg_remover_var = tk.IntVar()
+        bg_remover_box = ttk.Checkbutton(left_frame, text="remove background", variable=bg_remover_var, style="TCheckbutton")
+        bg_remover_box.grid(row=row_counter, column=0)
+        row_counter += 1
         if not isinstance(args['target_path'], int):
             progress_label = tk.Label(left_frame, fg=text_color, bg=background_color)
             progress_label.grid(row=row_counter, column=0)
@@ -1267,7 +1271,10 @@ while True:
                             print(f"ee: {e}")
             else:
                 init_advanced_face_detector() #will not do anything if loaded
-                rotation_angles = calculate_rotation_angles(frame)
+                bboxes, rotation_angles = get_face_details(frame, 50)
+                extracted_faces = []
+                #for bbox in bboxes:
+                #    fa =  
                 for it in range(len(rotation_angles)):
                     #a = frame[bbox[1]:bbox[3], bbox[0]:bbox[2]]
                     #cv2.imshow('a', a)
@@ -1368,6 +1375,12 @@ while True:
             if test1:
                 #print(alpha)
                 frame = merge_face(frame, original_frame, alpha)
+            rem_bg = False
+            if not args['cli']:
+                rem_bg = int(bg_remover_var.get())
+            if rem_bg:
+                #print("rembg")
+                frame = remove_background(frame,args, ct=sw, magic = True)
             return [], frame, original_frame
         return [], frame, original_frame
 
@@ -1429,7 +1442,7 @@ while True:
                         swapped_image_label_second.configure(image=None)
                         swapped_image_label_second.image = None  # Keep a reference to prevent garbage collection
 
-        except:
+        except Exception as e:
             
             original_image_label.configure(image=None)
             original_image_label.image = None  # Keep a reference to prevent garbage collection
@@ -1441,6 +1454,7 @@ while True:
             if swapped_image_second_open:
                 swapped_image_label_second.configure(image=None)
                 swapped_image_label_second.image = None  # Keep a reference to prevent garbage collection
+            #print(e)
             pass
         if xx:
             root.after(30, frame_updater)
@@ -1608,8 +1622,6 @@ while True:
             #update_progress_bar( 10, 0, frame_number)
             count = -1
             #videos[current_video]['current_frame_index'] = count
-            if args['vcam'] and videos[current_video]["type"] == 1:
-                cam = pyvirtualcam.Camera(width=width, height=height, fps=videos[current_video]["fps"])
             progressbar = tqdm(total=videos[current_video]["frame_number"])
             bbox = []
             start = time.time()
@@ -1627,11 +1639,21 @@ while True:
                     temp[-1].start()
                     count += 1'''
             xxs = True
-            
+            current_loop_video = -1
+            cam = None
             try:
                 while True:
                     try:
                         #print(videos[current_video]['rendering'])
+                        if current_loop_video != current_video:
+                            if args['vcam'] and videos[current_video]["type"] == 1:
+                                try:
+                                    cam.close()
+                                except Exception as e:
+                                    #print(e)
+                                    pass
+                                del cam
+                                cam = pyvirtualcam.Camera(width=int(videos[current_video]['width']), height=int(videos[current_video]['height']), fps=float(videos[current_video]["fps"]))
                         current_loop_video = current_video
                         if videos[current_loop_video]['rendering'] and ((videos[current_loop_video]['rendering'] and not args['cli']) or args['cli']):
                             

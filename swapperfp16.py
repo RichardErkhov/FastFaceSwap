@@ -108,11 +108,11 @@ class INSwapper():
         self.occluder_works = False
         self.CLIP_blur = 5
     def load_occluder(self):
-        self.init_occluder = True
         self.occluder_model, self.occluder_tensor = load_occluder_model()
+        self.init_occluder = True
     def load_clip(self):
-        self.init_clip = True
         self.clip_session, self.cuda_device = load_clip_model()
+        self.init_clip = True
 
     def forward(self, img, latent):
         img = (img - self.input_mean) / self.input_std
@@ -123,17 +123,21 @@ class INSwapper():
             self.CLIPs = prompts
         self.toggle_CLIPs = clip_works
         self.occluder_works = occluder_works
-        if not self.init_occluder and occluder_works:
+        if not self.init_occluder and self.occluder_works:
             self.load_occluder()
-        if not self.init_clip and clip_works:
+        if not self.init_clip and self.toggle_CLIPs:
             self.load_clip()
-        if occluder_works or clip_works:
+        if self.occluder_works or self.toggle_CLIPs:
             return self.get_rope(img, target_face, source_face, paste_back)  
         
         else:
             return self.get_old(img, target_face, source_face, paste_back)
         
     def get_rope(self, img, target_face, source_face, paste_back=True):
+        if self.occluder_works:
+            if not self.init_occluder:
+                self.load_occluder()
+
         kps = target_face.kps
         s_e = source_face.normed_embedding
         bbox = target_face.bbox
