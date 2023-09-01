@@ -29,7 +29,8 @@ parser.add_argument('--batch', help='batch processing mode, after the argument w
 #parser.add_argument('--extract-target-frames', help='extract frames from target video. After argument write the path to folder', dest='extract_target', default="")
 parser.add_argument('--extract-output-frames', help='extract frames from output video. After argument write the path to folder', dest='extract_output', default="")
 parser.add_argument('--codeformer-fidelity', help='sets up codeformer\'s fidelity if used with cli mode',default=0.1, dest='codeformer_fidelity')
-parser.add_argument('--blend', help='works with cli, blending amount from 0.0 to 1.0', default=1.0, dest='alpha')
+parser.add_argument('--blend', help='works with cli, original/final blending amount from 0.0 to 1.0', default=1.0, dest='alpha')
+parser.add_argument('--blend2', help='works with cli, swapped/upscaled blending amount from 0.0 to 1.0', default=1.0, dest='alpha2')
 parser.add_argument('--codeformer-skip_if_no_face', help='works only in cli. Skip codeformer if no face found', dest='codeformer_skip_if_no_face', action='store_true')
 parser.add_argument('--codeformer-face-upscale', help='works only in cli. Upscale the face using codeformer', dest='codeformer_face_upscale', action='store_true')
 parser.add_argument('--codeformer-background-enhance', help='works only in cli. Enhance the background using codeformer', dest='codeformer_background_enhance', action='store_true')
@@ -41,13 +42,15 @@ parser.add_argument("--bbox-adjust", help='adjustements to do for the box: x1,y1
 parser.add_argument("-vcam", "--virtual-camera", help='allows to use OBS virtual camera as output source', action='store_true', dest="vcam")
 parser.add_argument("--apple", help='just in case you are an apple user, you can finally use FFS', action='store_true', dest="apple")
 parser.add_argument("--occluder", help='use occluder with cli', action='store_true', dest="occluder")
+parser.add_argument("--remove-background", "--rembg", help='remove background', action='store_true', dest="rembg")
+parser.add_argument("--advanced-search", help='advanced search for faces, some functions might not work properly and faces might break', action='store_true', dest="advanced_search")
 args = {}
 for name, value in vars(parser.parse_args()).items():
     args[name] = value
 width, height = args['resolution'].split('x')
 globalsz.width, globalsz.height = int(width), int(height)
-if args['batch'] != "" and not args['batch'].endswith(".mp4"):
-    args['batch'] += '.mp4'
+#if args['batch'] != "" and not args['batch'].endswith(".mp4"):
+#    args['batch'] += '.mp4'
 #if args['extract_target'] != '':
 #    os.makedirs(args['extract_target'])
 if args['extract_output'] != '':
@@ -59,6 +62,7 @@ if args['vcam']:
         print("pip install pyvirtualcam to support output to OBS virtual camera")
         exit()
 alpha = float(args['alpha'])
+alpha2 = float(args['alpha2'])
 frame = None #so tkinter doesn't die 
 #if args['cli']:
     #testx = input("Are you sure you want to extract frames from videos? It will be done in the background (yes for yes and anything else for no):")
@@ -1189,11 +1193,9 @@ while True:
             test1 = args['alpha'] != 0
         _upscaled = False
         if test1:
-            advanced_search = False
+            advanced_search = args['advanced_search']
             if not args['cli']:
                 advanced_search = advanced_face_detector_var.get()
-            else:
-                pass
             
             if not advanced_search:
                 faces = face_analysers[sw].get(frame)
@@ -1223,7 +1225,7 @@ while True:
                         if faceswapper_checkbox_var.get() == True:
                             ttest1=True
                     if not args['no_faceswap'] and (ttest1 == True or args['cli']):
-                        occluder_works= False
+                        occluder_works = args['occluder']
                         if not args['cli']:
                             occluder_works = int(occluder_checkbox_var.get())
                             #print(occluder_works)
@@ -1366,7 +1368,7 @@ while True:
             if not args['cli']:
                 test1 = alpha2 != 1
             else:
-                test1 = args['alpha'] != 1
+                test1 = args['alpha2'] != 1
             if test1:
                 #print(alpha)
                 if _upscaled:
@@ -1378,7 +1380,7 @@ while True:
             if test1:
                 #print(alpha)
                 frame = merge_face(frame, original_frame, alpha)
-            rem_bg = False
+            rem_bg = args['rembg']
             if not args['cli']:
                 rem_bg = int(bg_remover_var.get())
             if rem_bg:
@@ -1569,12 +1571,7 @@ while True:
         #    source_face = sorted(face_analysers[0].get(input_face), key=lambda x: x.bbox[0])[0]
         gpu_usage = 0
         vram_usage = 0
-        if args['selective'] != '':
-            if args['selective'] != True:
-                im = cv2.imread(args['selective'])
-                #im = cv2.resize(im, (640, 640))
-                target_embedding = get_embedding(im)[0]
-        if args['image'] == True :
+        '''        if args['image'] == True :
             images = []
             if args['batch'] != "":
                 for i in os.listdir(args['target_path']):
@@ -1596,7 +1593,7 @@ while True:
             while threading.active_count() > original_threads:
                 time.sleep(0.01)
             print("image processing finished")
-            exit()
+            exit()'''
         caps = []
         #if args['batch'] == '':
         #    videos.append(create_new_cap(args['target_path']))
@@ -1613,7 +1610,18 @@ while True:
         elif args['fastload'] and not args['cli']:
             for t in tx:
                 t.join()
-
+        if args['selective'] != '':
+            if args['selective'] != True:
+                im = cv2.imread(args['selective'])
+                #im = cv2.resize(im, (640, 640))
+                target_embedding = get_embedding(im)[0]
+        if args['cli']:
+            facex = sorted(face_analysers[0].get(cv2.imread(args["face"])), key=lambda x: x.bbox[0])[0]
+            if args['batch'] == '':
+                videos.append(create_new_cap(args['target_path'], facex, args['output'],batch_post=""))
+            else:
+                for file in os.listdir(args['target_path']):
+                    videos.append(create_new_cap(os.path.join(args['target_path'], file), facex, os.path.join(args['output'], file),batch_post=args['batch']))
         #videos[current_video]['rendering'] = int(args['cli'])
         #if not args['cli'] and not args['preview']:
         #    open_second_window()
@@ -1802,20 +1810,24 @@ while True:
                 
                     if args['batch'] != '':
                         try:
-                            add_audio_from_video(videos[current_video]["save_temp_path"],videos[current_video]["target_path"], videos[current_video]['save_path'])
+                            add_audio_from_video(str(videos[current_video]["save_temp_path"]).replace("\\\\", "/"),str(videos[current_video]["target_path"]).replace("\\\\", "/"), str(videos[current_video]['save_path']).replace("\\\\", "/"))
                             os.remove(videos[current_video]["save_temp_path"])
                         except Exception as e:
                             print(f"SOMETHING WENT WRONG DURING THE ADDING OF THE AUDIO TO THE VIDEO!file: {videos[current_video]['save_path']}, error:{e}")
                     else:
                         if not isinstance(args['target_path'], int):
                             try:
-                                add_audio_from_video(videos[current_video]["save_temp_path"], videos[current_video]["target_path"], videos[current_video]['save_path'])
+                                add_audio_from_video(str(videos[current_video]["save_temp_path"]).replace("\\\\", "/"), str(videos[current_video]["target_path"]).replace("\\\\", "/"), str(videos[current_video]['save_path']).replace("\\\\", "/"))
                                 os.remove(videos[current_video]["save_temp_path"])
                             except Exception as e:
                                 print(f"failed to add audio: {e}")
                     videos[current_video]["cap"] = reset_cap(videos[current_video]["cap"])
                 if not args['cli']:
                     not_run_it_please()
+                if args['cli']:
+                    current_video += 1
+                    if current_video == len(videos):
+                        on_closing()
                 continue
         
             except KeyboardInterrupt:
@@ -1915,9 +1927,9 @@ while True:
             root.mainloop()
         else:
             main()
-    except Exception as e:
-        print(e)
-        os._exit(1)
+    #except Exception as e:
+    #    print(e)
+    #    os._exit(1)
     finally:
         if not args['cli']:
             globalsz.source_face = None

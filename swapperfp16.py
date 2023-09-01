@@ -30,7 +30,6 @@ def load_clip_model():
     clip_session.to(device)    
     return clip_session, device
 def load_occluder_model():            
-    
     exists = os.path.exists('weights/occluder.ckpt')
     if not exists:
         os.makedirs('weights', exist_ok=True)
@@ -402,7 +401,7 @@ class INSwapper():
             
         return fake_merged    #BGR
     def get_old(self, img, target_face, source_face, paste_back=True):
-        print("old")
+        #print("old")
         aimg, M = face_align.norm_crop2(img, target_face.kps, self.input_size[0])
         blob = cv2.dnn.blobFromImage(aimg, 1.0 / self.input_std, self.input_size,
                                       (self.input_mean, self.input_mean, self.input_mean), swapRB=True)

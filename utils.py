@@ -44,10 +44,10 @@ import sys
 #if not globalsz.args['nocuda']:
 #    torch.backends.cudnn.benchmark = True
 import tqdm
-import mediapipe as mp
 import magic    #pip install python-magic-bin https://github.com/Yelp/elastalert/issues/1927
 mime = magic.Magic(mime=True)
 if not globalsz.args['fastload']:
+    import mediapipe as mp
     from basicsr.archs.rrdbnet_arch import RRDBNet
     from basicsr.utils.download_util import load_file_from_url
     from realesrgan import RealESRGANer
@@ -213,6 +213,9 @@ def get_face_bboxes(image, adjustment_pixels):
 
     return adjusted_bboxes
 def init_advanced_face_detector():
+    global mp
+    if globalsz.args['fastload']:
+        import mediapipe as mp
     if isinstance(globalsz.mp_face_mesh, NoneType):
         globalsz.mp_face_mesh = mp.solutions.face_mesh
     if isinstance(globalsz.face_mesh, NoneType):
@@ -250,18 +253,19 @@ def extract_frames_from_video(target_video, output_folder):
     ]
     subprocess.run(ffmpeg_cmd, check=True)
 def add_audio_from_video(video_path, audio_video_path, output_path):
+    print(video_path)
     ffmpeg_cmd = [
         'ffmpeg',
         "-an",
-        '-i', video_path,
-        '-i', audio_video_path,
+        '-i', f'"{video_path}"',
+        '-i', f'"{audio_video_path}"',
         #'-c:v', 'copy',    # Copy video codec settings
         #'-c', 'copy',    # Copy audio codec settings
         '-map', '1:a:0?',
         '-map', '0:v:0',
         #'-acodec', 'copy',
         #'-shortest',
-        output_path
+        f'"{output_path}"'
     ]
     subprocess.run(ffmpeg_cmd, check=True)
 def merge_face(temp_frame, original, alpha):
@@ -731,7 +735,7 @@ def create_new_cap(file, face_, output_,batch_post=""):
                 "current_frame_index":isinstance(file, int),
                 "old_number":-1,
                 "frame_number":frame_number,
-                "rendering":False,
+                "rendering":globalsz.args['cli'],
                 "width":width,
                 "height":height,
                 "fps":fps,
@@ -777,7 +781,7 @@ def create_new_cap(file, face_, output_,batch_post=""):
                 "current_frame_index":0,
                 "old_number":-1,
                 "frame_number":-1,
-                "rendering":False,
+                "rendering":globalsz.args['cli'],
                 "width":width,
                 "height":height,
                 "fps":-1,
