@@ -846,7 +846,7 @@ while True:
             face_chooser_window.withdraw()
        
         face_chooser_window = tk.Toplevel(root, bg=background_color)
-        face_chooser_window.attributes("-topmost", True)
+        #face_chooser_window.attributes("-topmost", True)
         face_chooser_window.geometry("640x560")
         face_chooser_window.grid_rowconfigure(0, weight=1)
         face_chooser_window.grid_columnconfigure(0, weight=1)
@@ -997,8 +997,8 @@ while True:
                 root.grid_rowconfigure(1, weight=show_swapped)
             right_frame1.grid_propagate(False)
             right_frame2.grid_propagate(False)
-            root.update_idletasks()
-            root.update()
+            #root.update_idletasks()
+            #root.update()
         
         UI_button_frame = tk.Frame(left_frame, bg=background_color)
         UI_button_frame.grid(row=row_counter, column=0, sticky="ew")

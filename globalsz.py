@@ -8,7 +8,7 @@ realeasrgan_model = "RealESRGAN_x2plus"
 realesrgan_fp16 = False
 realesrgan_outscale = 2
 rembg_model = "u2net" #https://github.com/danielgatis/rembg/tree/main#models
-rembg_color = [255, 0, 0, 0] #RGBA
+rembg_color = [0, 255, 0, 0] #RGBA
 # used by the program
 lowmem = True
 generator = None
