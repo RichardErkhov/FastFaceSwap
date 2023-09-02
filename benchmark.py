@@ -18,9 +18,9 @@ if __name__ == '__main__':
         #'python main.py -f benchmark/source.jpg -t benchmark/target-360p.mp4 -o benchmark2.mp4 --cli --threads 12 --optimization fp32 --lowmem --fast-load',
         #'python main.py -f benchmark/source.jpg -t benchmark/target-540p.mp4 -o benchmark3.mp4 --cli --threads 12 --optimization fp32 --lowmem --fast-load',
         #'python main.py -f benchmark/source.jpg -t benchmark/target-720p.mp4 -o benchmark4.mp4 --cli --threads 12 --optimization fp32 --lowmem --fast-load',
-        'python main.py -f benchmark/source.jpg -t benchmark/target-1080p.mp4 -o benchmark5.mp4 --cli --threads 12 --optimization fp16 --lowmem --fast-load',
-        'python main.py -f benchmark/source.jpg -t benchmark/target-1080p.mp4 -o benchmark5.mp4 --cli --threads 12 --optimization fp16 --lowmem --fast-load',
-        'python main.py -f benchmark/source.jpg -t benchmark/target-1080p.mp4 -o benchmark5.mp4 --cli --threads 12 --optimization fp16 --lowmem --fast-load',
+        'python main.py -f benchmark/source.jpg -t benchmark/target-1080p.mp4 -o benchmark5.mp4 --cli --threads 12 --optimization fp16 --lowmem --fast-load --occluder --rembg',
+        'python main.py -f benchmark/source.jpg -t benchmark/target-1080p.mp4 -o benchmark5.mp4 --cli --threads 12 --optimization fp16 --lowmem --fast-load --occluder --rembg',
+        'python main.py -f benchmark/source.jpg -t benchmark/target-1080p.mp4 -o benchmark5.mp4 --cli --threads 12 --optimization fp16 --lowmem --fast-load --occluder --rembg',
         #'python main.py -f benchmark/source.jpg -t benchmark/target-1440p.mp4 -o benchmark6.mp4 --cli --threads 12 --optimization fp32 --lowmem --fast-load',
         #'python main.py -f benchmark/source.jpg -t benchmark/target-2160p.mp4 -o benchmark7.mp4 --cli --threads 12 --optimization fp32 --lowmem --fast-load'
     ]

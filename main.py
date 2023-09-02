@@ -1110,8 +1110,11 @@ while True:
         right_control_frame.grid(row=0, column=0, rowspan=2, sticky="ns")
         def add():
             global videos
-            facex = sorted(face_analysers[0].get(cv2.imread(args["face"])), key=lambda x: x.bbox[0])[0]
-            videos.append(create_new_cap(args['target_path'], facex, args['output'],))
+            try:
+                facex = sorted(face_analysers[0].get(cv2.imread(args["face"])), key=lambda x: x.bbox[0])[0]
+                videos.append(create_new_cap(args['target_path'], facex, args['output'],))
+            except Exception as e:
+                show_error_custom(text=f"Wait few seconds and try again, program didn't start yet (I will not notify you). debug error: {e}")
         def delete_current_video():
             global videos, current_video
             videos.pop(current_video)
@@ -1633,6 +1636,7 @@ while True:
             #update_progress_bar( 10, 0, frame_number)
             count = -1
             #videos[current_video]['current_frame_index'] = count
+            print(videos[current_video]["frame_number"])
             progressbar = tqdm(total=videos[current_video]["frame_number"])
             bbox = []
             start = time.time()
@@ -1810,14 +1814,16 @@ while True:
                 
                     if args['batch'] != '':
                         try:
-                            add_audio_from_video(str(videos[current_video]["save_temp_path"]).replace("\\\\", "/"),str(videos[current_video]["target_path"]).replace("\\\\", "/"), str(videos[current_video]['save_path']).replace("\\\\", "/"))
+                            add_audio_from_video(str(videos[current_video]["save_temp_path"]).replace("\\", "/"),str(videos[current_video]["target_path"]).replace("\\", "/"), str(videos[current_video]['save_path']).replace("\\", "/"))
+                            print('deleting')
                             os.remove(videos[current_video]["save_temp_path"])
                         except Exception as e:
                             print(f"SOMETHING WENT WRONG DURING THE ADDING OF THE AUDIO TO THE VIDEO!file: {videos[current_video]['save_path']}, error:{e}")
                     else:
                         if not isinstance(args['target_path'], int):
                             try:
-                                add_audio_from_video(str(videos[current_video]["save_temp_path"]).replace("\\\\", "/"), str(videos[current_video]["target_path"]).replace("\\\\", "/"), str(videos[current_video]['save_path']).replace("\\\\", "/"))
+                                add_audio_from_video(str(videos[current_video]["save_temp_path"]).replace("\\", "/"), str(videos[current_video]["target_path"]).replace("\\", "/"), str(videos[current_video]['save_path']).replace("\\", "/"))
+                                
                                 os.remove(videos[current_video]["save_temp_path"])
                             except Exception as e:
                                 print(f"failed to add audio: {e}")

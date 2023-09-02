@@ -699,12 +699,18 @@ def create_batch_cap(file):
     return [cap, fps, width, height, out, name, file, frame_number]
 
 def create_new_cap(file, face_, output_,batch_post=""):
-    try:
-        video_type = mime.from_file(file)
-    except Exception as e:
-        print(f"{file} is not image or video, error from video_type: {e}")
-        return
+    if not isinstance(file, int):
+        try:
+            video_type = mime.from_file(file)
+        except Exception as e:
+            print(f"{file} is not image or video, error from video_type: {e}")
+            return
+    else:
+        video_type = 'video'
     if video_type.startswith('video'):
+        if batch_post != "":
+            if not batch_post.endswith(".mp4"):
+                batch_post += ".mp4"
         if globalsz.args['camera_fix'] == True:
             cap = cv2.VideoCapture(file, cv2.CAP_DSHOW)
         else:
@@ -723,7 +729,9 @@ def create_new_cap(file, face_, output_,batch_post=""):
         name = os.path.join(output_.rstrip(output_filename).rstrip(), f"{output_filename}{batch_post}")
         name_temp = os.path.join(output_.rstrip(output_filename).rstrip(), f"{output_filename}{batch_post}_temp.mp4")#f"{args['output']}_temp{args['batch']}.mp4"
         out = cv2.VideoWriter(name_temp, fourcc, fps, (width, height))
-        frame_number = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        frame_number = 1
+        if not isinstance(file, int):
+            frame_number = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         #face_ = 
         return {"type": 1,
                 "cap":cap,
@@ -767,6 +775,9 @@ def create_new_cap(file, face_, output_,batch_post=""):
                 "face":face_
                 }
     if video_type.startswith('image'):
+        if batch_post != "":
+            if not batch_post.endswith(".png"):
+                batch_post += ".png"
         output_filename = os.path.basename(output_)
         name = os.path.join(output_.rstrip(output_filename).rstrip(), f"{output_filename}{batch_post}")
         image = cv2.imread(file)
@@ -805,12 +816,13 @@ def create_new_cap(file, face_, output_,batch_post=""):
                 "first_frame":image,#get_nth_frame(cap, 0),
                 "temp": [],
                 "face":face_}
-
+    print(video_type)
 def write_frame(video):
     if video["type"] == 0:
+        print(video['save_path'])
         cv2.imwrite(video['save_path'], video['swapped_image'])
         return
-    video['out'].write(video["swapped_image"])
+    video['out'].write(video["swapped_image"][:,:, :3])
     return
 
 def get_frame(video, frame_index=-1, toret=False):
@@ -862,7 +874,7 @@ def create_configs_for_onnx():
         'tunable_op_tuning_enable': 1
         }),'CPUExecutionProvider'
         ]
-        listx.append(providers)
+        listx.append([idx, providers])
     return listx
 def create_configs_for_onnx_rembg():
     listx = []
@@ -918,9 +930,9 @@ def prepare_rembg(args):
     
 def remove_background(frame,args, ct=0, magic = True):
     global remove_bg
+    ct = 0
     with globalsz.rembg_lock:
         prepare_rembg(args)
-    ct = 0
     # Convert frame to PNG bytes
     _, buffer = cv2.imencode('.png', frame)
     frame_bytes = buffer.tobytes()
@@ -946,6 +958,7 @@ def remove_background(frame,args, ct=0, magic = True):
 
         # Replace the alpha channel in the output frame
         output_frame[:, :, 3] = alpha_channel
+    #print(output_frame.shape)
     return output_frame
 
 def prepare_swappers_and_analysers(args):
@@ -954,30 +967,30 @@ def prepare_swappers_and_analysers(args):
     sess_options = get_sess_options()
     swappers = []
     analysers = []
-    for idx, providers in enumerate(provider_list):
+    for idx, (device_id, providers) in enumerate(provider_list):
         if not args['no_faceswap']:
             if args['optimization'] == "fp16":
                 
                 if globalsz.args['fastload']:
                     from swapperfp16 import get_model
-                swappers.append(get_model("inswapper_128.fp16.onnx", session_options=sess_options, providers=providers))
+                swappers.append(get_model("inswapper_128.fp16.onnx", argsz=args, session_options=sess_options, providers=providers))
             elif args['optimization'] == "int8":
                 if "CUDAExecutionProvider" in provider_list:
                     print("int8 may not work on gpu properly and might load your cpu instead")
                     
                 if globalsz.args['fastload']:
                     from swapperfp16 import get_model
-                swappers.append(get_model("inswapper_128.quant.onnx", session_options=sess_options, providers=providers))
+                swappers.append(get_model("inswapper_128.quant.onnx", argsz=args, session_options=sess_options, providers=providers))
             else:
                 
                 if globalsz.args['fastload']:
                     from swapperfp16 import get_model
-                swappers.append(get_model("inswapper_128.onnx", session_options=sess_options, providers=providers))
+                swappers.append(get_model("inswapper_128.onnx", argsz=args, session_options=sess_options, providers=providers))
         else: #insightface.model_zoo.
             swappers.append(None)
 
         analysers.append(insightface.app.FaceAnalysis(name='buffalo_l',allowed_modules=["recognition", "detection"], providers=providers, session_options=sess_options))
-        analysers[idx].prepare(ctx_id=0, det_size=(256, 256)) #640, 640
+        analysers[idx].prepare(ctx_id=0, det_size=(640, 640)) #640, 640
     return swappers, analysers
 
 def download(link, filename):

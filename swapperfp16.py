@@ -21,15 +21,15 @@ from insightface.utils.face_align import norm_crop2
 from math import floor, ceil
 import threading
 lock=threading.Lock()
-def load_clip_model():
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+def load_clip_model(gpu_id=0):
+    device = torch.device(f"cuda:{gpu_id}" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")    
     clip_session = CLIPDensePredT(version='ViT-B/16', reduce_dim=64, complex_trans_conv=True)
     clip_session.eval()
     clip_session.load_state_dict(torch.load('weights/rd64-uni-refined.pth', map_location=torch.device('cuda')), strict=False)
     clip_session.to(device)    
     return clip_session, device
-def load_occluder_model():            
+def load_occluder_model(gpu_id=0):            
     exists = os.path.exists('weights/occluder.ckpt')
     if not exists:
         os.makedirs('weights', exist_ok=True)
@@ -44,7 +44,7 @@ def load_occluder_model():
         new_weights[new_key] = weights[key]
 
     model.load_state_dict(new_weights)
-    model.to('cuda')
+    model.to(f'cuda:{gpu_id}')
     model.eval()
     return model, to_tensor
 
@@ -54,9 +54,14 @@ def create_M2_from_M1(M1, scale_factor):
     M2[:, 2] *= scale_factor  # Scale the translation part
     return M2
 class INSwapper():
-    def __init__(self, model_file=None, session=None):
+    def __init__(self, model_file=None, session=None, gpu_id=0, args=None):
+        self.gpu_id = gpu_id
         self.model_file = model_file
         self.session = session
+        if args != None:
+            if args['occluder']:
+                tx = threading.Thread(target=self.load_occluder)
+                tx.start()
         model = onnx.load(self.model_file)
         graph = model.graph
         self.emap = numpy_helper.to_array(graph.initializer[-1])
@@ -106,11 +111,14 @@ class INSwapper():
         self.init_clip = False
         self.occluder_works = False
         self.CLIP_blur = 5
+        if args != None:
+            if args['occluder']:
+                tx.join()
     def load_occluder(self):
-        self.occluder_model, self.occluder_tensor = load_occluder_model()
+        self.occluder_model, self.occluder_tensor = load_occluder_model(self.gpu_id)
         self.init_occluder = True
     def load_clip(self):
-        self.clip_session, self.cuda_device = load_clip_model()
+        self.clip_session, self.cuda_device = load_clip_model(self.gpu_id)
         self.init_clip = True
 
     def forward(self, img, latent):
@@ -210,7 +218,7 @@ class INSwapper():
 
             data = self.occluder_tensor(input_image).unsqueeze(0)
 
-            data = data.to('cuda')
+            data = data.to(f'cuda:{self.gpu_id}')
             with lock:
                 with torch.no_grad():
                     pred = self.occluder_model(data)
@@ -482,14 +490,14 @@ class ModelRouter:
     def __init__(self, onnx_file):
         self.onnx_file = onnx_file
 
-    def get_model(self, **kwargs):
+    def get_model(self, argsz, **kwargs):
         session = PickableInferenceSession(self.onnx_file, **kwargs)
         print(f'Applied providers: {session._providers}, with options: {session._provider_options}')
         inputs = session.get_inputs()
         input_cfg = inputs[0]
         input_shape = input_cfg.shape
         outputs = session.get_outputs()
-        return INSwapper(model_file=self.onnx_file, session=session)
+        return INSwapper(model_file=self.onnx_file, session=session, args=argsz)
 
 def get_default_providers():
     return ['CUDAExecutionProvider', 'CPUExecutionProvider']
@@ -514,11 +522,12 @@ def check_or_download(filename):
     exists = os.path.exists(filename)
     if not exists:
         download(f"https://github.com/RichardErkhov/FastFaceSwap/releases/download/model/{filename}", filename)
-def get_model(name, **kwargs):
+def get_model(name, argsz, **kwargs):
     check_or_download(name)
     router = ModelRouter(name)
     providers = kwargs.get('providers', get_default_providers())
     provider_options = kwargs.get('provider_options', get_default_provider_options())
+    #args = kwargs.get('argsz', None)
     #session_options = kwargs.get('session_options', None)
-    model = router.get_model(providers=providers, provider_options=provider_options)#, session_options = session_options)
+    model = router.get_model(providers=providers, provider_options=provider_options, argsz=argsz)#, session_options = session_options)
     return model
