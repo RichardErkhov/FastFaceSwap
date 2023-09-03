@@ -85,6 +85,10 @@ fast enhancer is still in development, color correction is needed! Sorry for inc
 
 To choose the gpu you want to run on: in globalsz.py, on the line with `select_gpu = None` you can make it `select_gpu = [0, 1]` or something similar (these numbers are id of gpus, starting from 0).
 
+to use all gpus, `select_gpu = None`
+
+Multigpu mode for now only supports just face swapping, **without the enhancer**!!! So if you want enhancer to work, for now select only one gpu.
+
 # please read at least TLDR
 
 TL;DR. This tool was created just to make fun to remake memes, put yourself in the movies and other fun things. Some people on the other hand are doing some nasty things using this software, which is not intended way to use this software. Please be a good person, and don’t do harm to other people. Do not hold my liable for anything.
@@ -108,6 +112,3 @@ Feedback and Improvement: We encourage users to provide feedback on their experi
 
 By using this tool, you acknowledge that you have read and understood this disclaimer. You agree to use the tool responsibly and in accordance with all applicable laws and ethical standards. The developers of this tool retain the right to modify, suspend, or terminate access to the tool at their discretion.
 
-to use all gpus, `select_gpu = None`
-
-Multigpu mode for now only supports just face swapping, **without the enhancer**!!! So if you want enhancer to work, for now select only one gpu.
