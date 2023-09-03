@@ -8,6 +8,42 @@ just a little project for fast face swapping using one picture. Now supports mul
 
 -everything else is installed automatically!
 
+# how to install
+
+if you are on windows with nvidia gpu:
+
+- install_windows.cmd
+
+if you are on windows with amd gpu:
+
+- install_directml_windows.cmd
+
+if you are on linux with nvidia gpu:
+
+- install_linux.sh
+
+if you are on mac, Im not sure if it's going to work properly, but:
+
+- install_mac.sh
+
+if you are on a phone (android), and want to run it for some reason, you are not really supported, but I managed it to run in termux with ubuntu 22.04 (installed inside termux)
+
+- install_termux.sh
+
+Note for linux guys with permission denied:
+`chmod +x install_linux.sh` (or whatever your installer is)
+
+then to start the environment:
+
+- start_venv_windows.cmd (if you are on windows)
+
+- start_venv_linux.sh (if you are on linux or android)
+
+- start_mac.sh (if you are on mac)
+
+Note for linux guys with permission denied: same as installer, `chmod +x start_venv_linux.sh` (or whatever you need to run)
+
+
 # how to run
 
 ### Here is a [colab example](https://colab.research.google.com/github/RichardErkhov/FastFaceSwap/blob/main/colab_example.ipynb)
