@@ -10,6 +10,8 @@ just a little project for fast face swapping using one picture. Now supports mul
 
 # how to install
 
+- clone the repo
+
 if you are on windows with nvidia gpu:
 
 - install_windows.cmd
