@@ -10,6 +10,8 @@ just a little project for fast face swapping using one picture. Now supports mul
 
 # how to install
 
+## for windows: I prefer using cmd, not powershell. Sometimes it bugs out, so please, use cmd
+
 - clone the repo
 
 if you are on windows with nvidia gpu:
