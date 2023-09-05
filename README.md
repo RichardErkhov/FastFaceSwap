@@ -1,6 +1,9 @@
 # FastFaceSwap
 just a little project for fast face swapping using one picture. Now supports multigpu! (Almost, check the ending of readme)
 ## join my discord server https://discord.gg/hzrJBGPpgN
+
+# If you want to use CLIP, occluder etc, please use banana branch (it's in development, has some bugs)
+
 ## requirements:
 -python 3.10
 
