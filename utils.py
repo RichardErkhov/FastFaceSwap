@@ -697,14 +697,23 @@ def create_batch_cap(file):
     out = cv2.VideoWriter(name, fourcc, fps, (width, height))
     frame_number = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     return [cap, fps, width, height, out, name, file, frame_number]
-
+def is_integer(s):
+    try:
+        int(s)
+        return True
+    except ValueError:
+        return False
 def create_new_cap(file, face_, output_,batch_post=""):
     if not isinstance(file, int):
-        try:
-            video_type = mime.from_file(file)
-        except Exception as e:
-            print(f"{file} is not image or video, error from video_type: {e}")
-            return
+        if not is_integer(file):
+            try:
+                video_type = mime.from_file(file)
+            except Exception as e:
+                print(f"{file} is not image or video, error from video_type: {e}")
+                return
+        else:
+            video_type = 'video'
+            file = int(file)
     else:
         video_type = 'video'
     if video_type.startswith('video'):
