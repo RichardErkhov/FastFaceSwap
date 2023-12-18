@@ -1191,7 +1191,7 @@ while True:
     def face_analyser_thread(frame, sw):
         global alpha2, codeformer
         if args['grim']:
-            frame = get_frame(*frame)
+            _, frame = get_frame(*frame)
         original_frame = frame.copy()
         if not args['cli']:
             test1 = alpha != 0
