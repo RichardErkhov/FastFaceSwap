@@ -789,7 +789,7 @@ def create_new_cap(file, face_, output_,batch_post="", grim=False):
                 batch_post += ".png"
         output_filename = os.path.basename(output_)
         name = os.path.join(output_.rstrip(output_filename).rstrip(), f"{output_filename}{batch_post}")
-        image = cv2.imread(file) if grim else None
+        image = cv2.imread(file) if grim == False else None
         width, height = image.shape[:2]
         return {"type": 0,
                 "cap": None,
