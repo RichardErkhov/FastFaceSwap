@@ -44,6 +44,7 @@ parser.add_argument("--apple", help='just in case you are an apple user, you can
 parser.add_argument("--occluder", help='use occluder with cli', action='store_true', dest="occluder")
 parser.add_argument("--remove-background", "--rembg", help='remove background', action='store_true', dest="rembg")
 parser.add_argument("--advanced-search", help='advanced search for faces, some functions might not work properly and faces might break', action='store_true', dest="advanced_search")
+parser.add_argument("--grim", help='Grim mode. In case you want 200k VR images to not cache', action='store_true', dest="grim")
 args = {}
 for name, value in vars(parser.parse_args()).items():
     args[name] = value
@@ -1624,7 +1625,7 @@ while True:
                 videos.append(create_new_cap(args['target_path'], facex, args['output'],batch_post=""))
             else:
                 for file in os.listdir(args['target_path']):
-                    videos.append(create_new_cap(os.path.join(args['target_path'], file), facex, os.path.join(args['output'], file),batch_post=args['batch']))
+                    videos.append(create_new_cap(os.path.join(args['target_path'], file), facex, os.path.join(args['output'], file),batch_post=args['batch'], grim=args['grim']))
         #videos[current_video]['rendering'] = int(args['cli'])
         #if not args['cli'] and not args['preview']:
         #    open_second_window()
