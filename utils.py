@@ -703,7 +703,7 @@ def is_integer(s):
         return True
     except ValueError:
         return False
-def create_new_cap(file, face_, output_,batch_post=""):
+def create_new_cap(file, face_, output_,batch_post="", grim=False):
     if not isinstance(file, int):
         if not is_integer(file):
             try:
@@ -789,7 +789,7 @@ def create_new_cap(file, face_, output_,batch_post=""):
                 batch_post += ".png"
         output_filename = os.path.basename(output_)
         name = os.path.join(output_.rstrip(output_filename).rstrip(), f"{output_filename}{batch_post}")
-        image = cv2.imread(file)
+        image = cv2.imread(file) if grim else None
         width, height = image.shape[:2]
         return {"type": 0,
                 "cap": None,
@@ -824,7 +824,8 @@ def create_new_cap(file, face_, output_,batch_post=""):
                 "count":-1,
                 "first_frame":image,#get_nth_frame(cap, 0),
                 "temp": [],
-                "face":face_}
+                "face":face_,
+                "grim":grim}
     print(video_type)
 def write_frame(video):
     if video["type"] == 0:
@@ -838,8 +839,8 @@ def get_frame(video, frame_index=-1, toret=False):
     #if index == -1, just get the frame
     if video['type'] == 0:
         if toret:
-            return True, video["original_image"]
-        return video["original_image"]
+            return True, cv2.imread(video['target_path']) if video['grim'] == True else video["original_image"]
+        return cv2.imread(video['target_path']) if video['grim'] == True else video["original_image"]
     if frame_index != -1:
         return get_nth_frame(video['cap'], frame_index)
     ret, frame = video['cap'].read()
