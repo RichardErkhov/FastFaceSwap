@@ -824,7 +824,7 @@ def create_new_cap(file, face_, output_,batch_post="", grim=False):
                 "count":-1,
                 "first_frame":image,#get_nth_frame(cap, 0),
                 "temp": [],
-                "face":face_,
+                "face":None,
                 "grim":grim}
     print(video_type)
 def write_frame(video):
