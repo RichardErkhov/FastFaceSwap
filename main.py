@@ -1624,8 +1624,12 @@ while True:
             if args['batch'] == '':
                 videos.append(create_new_cap(args['target_path'], facex, args['output'],batch_post=""))
             else:
+                if args['grim']:
+                    pbar = tqdm(total=len(os.listdir(args['target_path'])), desc="we are in grim mode, please just wait a bit")
                 for file in os.listdir(args['target_path']):
                     videos.append(create_new_cap(os.path.join(args['target_path'], file), facex, os.path.join(args['output'], file),batch_post=args['batch'], grim=args['grim']))
+                    if args['grim']:
+                        pbar.update(1)
         #videos[current_video]['rendering'] = int(args['cli'])
         #if not args['cli'] and not args['preview']:
         #    open_second_window()
