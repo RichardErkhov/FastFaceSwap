@@ -1190,6 +1190,8 @@ while True:
                 return
     def face_analyser_thread(frame, sw):
         global alpha2, codeformer
+        if args['grim']:
+            frame = get_frame(*frame)
         original_frame = frame.copy()
         if not args['cli']:
             test1 = alpha != 0
@@ -1688,7 +1690,11 @@ while True:
                                 if isinstance(frame, NoneType): #== None:
                                     break
                             else:
-                                ret, frame = get_frame(videos[current_loop_video], -1, True)#videos[current_loop_video]["cap"].read()
+                                if not args['grim']:
+                                    ret, frame = get_frame(videos[current_loop_video], -1, True)#videos[current_loop_video]["cap"].read()
+                                else:
+                                    ret = True
+                                    frame = [videos[current_loop_video], -1, True]
                                 if not ret:
                                     break
                             #print("red cap")
